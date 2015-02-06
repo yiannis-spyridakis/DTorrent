@@ -65,7 +65,7 @@ public class TCPServer implements Runnable {
 			while(true) {
 				// Wait for connection
 				connection = providerSocket.accept();
-				torrentFiles.ConnectionCkeck(connection);
+				torrentFiles.HandleConnection(connection);
 			}
 
 		}

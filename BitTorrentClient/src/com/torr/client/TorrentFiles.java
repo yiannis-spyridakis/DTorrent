@@ -2,17 +2,19 @@ package com.torr.client;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.Socket;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import com.torr.ui.ITorrentUI;
-import com.torr.utils.*;
+import com.torr.utils.SystemUtils;
 
 public class TorrentFiles {
 	ITorrentUI torrentUI;
-	TCPServer tcpServer = new TCPServer();
+	TCPServer tcpServer = new TCPServer(this);
 	File mainFolder;
 	WorkspaceManager wsm;
+	TorrentFileDescriptor torrentFileDiscriptor;
 	
 	public TorrentFiles(ITorrentUI torrentUI)
 	{
@@ -56,7 +58,14 @@ public class TorrentFiles {
 		return ret;
 	}
 	
+	public void HandleConnection(Socket connection) throws IOException {
+		Peer t = new Peer(connection);
+		t.run();
+		
+	}
+	
 	
 	
 	
 }
+

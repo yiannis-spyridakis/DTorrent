@@ -34,13 +34,13 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	public volatile Boolean peerChocking = true;
 	private volatile Boolean shutdownRequested = false;
 	
-	public Peer(byte[] currentBitfield, String hostName, int portNumber) throws IOException
+	public Peer(String hostName, int portNumber) throws IOException
 	{
-		this(currentBitfield, new Socket(hostName, portNumber));
+		this(new Socket(hostName, portNumber));
 	}
-	public Peer(byte[] currentBitfield, Socket peerSocket) throws IOException
+	public Peer(Socket peerSocket) throws IOException
 	{
-		this.currentBitfield = currentBitfield;
+		
 		this.peerSocket = peerSocket;
 		this.inputStream = new BufferedInputStream(peerSocket.getInputStream());
 		this.outputStream = new BufferedOutputStream(peerSocket.getOutputStream());
