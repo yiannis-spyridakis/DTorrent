@@ -6,7 +6,7 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-
+//John
 public class TCPServer implements Runnable {
 	ServerSocket providerSocket;
 	Socket	connection = null;
