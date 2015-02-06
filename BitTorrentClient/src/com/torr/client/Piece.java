@@ -5,6 +5,7 @@ import java.util.Arrays;
 
 import com.torr.utils.HashingUtils;
 
+// Test comment
 public class Piece {
 	
 	private int index;
