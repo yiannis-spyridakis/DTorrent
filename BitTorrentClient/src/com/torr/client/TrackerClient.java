@@ -7,6 +7,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.List;
 
+import com.torr.bencode.TorrentFileDescriptor;
 import com.torr.msgs.MessageToClient;
 import com.torr.msgs.MessageToTracker;
 
@@ -32,7 +33,9 @@ public class TrackerClient extends Thread {
 		try
 		{
 			while(true) {
-				requestSocket =	new	Socket("10.0.1.154", 7001);
+				TorrentFileDescriptor torrentFileDescriptor = 
+						new TorrentFileDescriptor("project3.torrent");
+				requestSocket =	new	Socket(torrentFileDescriptor.TrackerUrl(), 7001);
 				System.out.println(requestSocket.getInetAddress().getHostAddress());
 				out = new ObjectOutputStream(requestSocket.getOutputStream());
 				in = new ObjectInputStream(requestSocket.getInputStream());
