@@ -45,7 +45,7 @@ public class TorrentFile
 	/**
 	 * Η συλλογή απο SHA-1 hash τιμές για κάθε κομμάτι του αρχείου, αποθηκεύεται ως byte arrays.
 	 */
-	public Vector piece_hash_values_as_binary;
+	public Vector<byte[]> piece_hash_values_as_binary;
 	
 	/**
 	 * Η συλλογή απο SHA-1 hash τιμές για κάθε κομμάτι του αρχείου, αποθηκεύεται ως Strings of hexadecimal digits.
