@@ -3,6 +3,7 @@ package com.torr.client;
 import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import com.torr.bencode.TorrentFileDescriptor;
 
 public class TorrentFile {
 	
@@ -16,7 +17,7 @@ public class TorrentFile {
 			boolean isSeeder
 		)
 	{
-		this.pieces = descriptor.getPieces();
+		//this.pieces = descriptor.getPieces();
 	}
 	
 	public Piece getPiece(int index)

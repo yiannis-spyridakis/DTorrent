@@ -8,6 +8,7 @@ import java.nio.file.Paths;
 
 import com.torr.ui.ITorrentUI;
 import com.torr.utils.SystemUtils;
+import com.torr.bencode.TorrentFileDescriptor;
 
 public class TorrentFiles {
 	ITorrentUI torrentUI;
