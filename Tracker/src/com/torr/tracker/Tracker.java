@@ -24,7 +24,7 @@ public class Tracker {
 		try
 		{
 			// creating a server socket
-			providerSocket	= new ServerSocket(7001, 10);
+			providerSocket	= new ServerSocket(20000, 10);
 			Thread d = new Delete(); d.start();
 			while(true) {
 			// Wait for connection
