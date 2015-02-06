@@ -60,7 +60,7 @@ public class TorrentFiles {
 	
 	public void HandleConnection(Socket connection) throws IOException {
 		Peer t = new Peer(connection);
-		t.run();
+		t.run();;
 		
 	}
 	
