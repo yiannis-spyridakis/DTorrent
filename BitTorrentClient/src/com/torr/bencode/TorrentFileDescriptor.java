@@ -6,7 +6,12 @@ public class TorrentFileDescriptor
 {
 	private TorrentFileHandler torrent_file_handler;
 	private TorrentFile torrent_file;
-                 
+             
+	public TorrentFileDescriptor(final String path)
+	{
+		Initialize(path);
+ 	}
+	
     public String TrackerUrl()
     {
     	return torrent_file.tracker_url;
@@ -32,10 +37,6 @@ public class TorrentFileDescriptor
     	return torrent_file.piece_hash_values_as_binary;
     }
         
-	public TorrentFileDescriptor(final String path)
-	{
-		Initialize(path);
- 	}
 
 	private void Initialize(final String path)
 	{
