@@ -11,7 +11,7 @@ import com.torr.msgs.MessageToClient;
 public class TorrentFile implements Runnable {
 	
 	
-	TorrentFiles torrentFiles = null;
+	TorrentMain torrentFiles = null;
 	Piece pieces[] = null;
 	TorrentFileStorage torrentStorage = null;
 	List<MessageToClient> peers;

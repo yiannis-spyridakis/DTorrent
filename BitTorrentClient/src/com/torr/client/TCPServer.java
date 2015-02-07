@@ -14,10 +14,10 @@ public class TCPServer implements Runnable {
 	ObjectInputStream in;
 	private Thread backgroundThread;
 	volatile boolean portCreated = false;
-	private TorrentFiles torrentFiles = null;
+	private TorrentMain torrentFiles = null;
 
 
-	TCPServer(TorrentFiles torrentFiles) 
+	TCPServer(TorrentMain torrentFiles) 
 	{
 		this.torrentFiles = torrentFiles;
 		backgroundThread = new Thread(this);

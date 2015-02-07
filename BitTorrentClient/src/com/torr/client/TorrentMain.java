@@ -10,14 +10,14 @@ import com.torr.ui.ITorrentUI;
 import com.torr.utils.SystemUtils;
 import com.torr.bencode.TorrentFileDescriptor;
 
-public class TorrentFiles {
+public class TorrentMain {
 	ITorrentUI torrentUI;
 	TCPServer tcpServer = new TCPServer(this);
 	File mainFolder;
 	WorkspaceManager wsm;
 	TorrentFileDescriptor torrentFileDiscriptor;
 	
-	public TorrentFiles(ITorrentUI torrentUI)
+	public TorrentMain(ITorrentUI torrentUI)
 	{
 		this.torrentUI = torrentUI;
 		
@@ -61,7 +61,7 @@ public class TorrentFiles {
 	
 	public void HandleConnection(Socket connection) throws IOException {
 		//
-		Peer t = new Peer(connection);		
+		//Peer t = new Peer(connection);		
 	}
 	
 	

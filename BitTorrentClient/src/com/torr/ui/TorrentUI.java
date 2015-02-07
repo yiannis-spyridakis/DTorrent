@@ -28,7 +28,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 	private ScrollPane consoleWrapper = null;
 	private VBox detailsConsole = null;
 	private boolean scrollToBottom = false;
-	private TorrentFiles torrentFiles;
+	private TorrentMain torrentFiles;
 	
 	public static void main(String[] args) {
 		System.out.println("Launching JavaFX application.");		
@@ -71,7 +71,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 		// Show the stage and its scene.
 		myStage.show();	
 		
-		this.torrentFiles = new TorrentFiles(this);
+		this.torrentFiles = new TorrentMain(this);
 		
 		
 	}
