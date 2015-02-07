@@ -4,35 +4,38 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Vector;
 
 import com.torr.bencode.TorrentFileDescriptor;
 import com.torr.msgs.MessageToClient;
 
-public class TorrentFile implements Runnable {
+public class TorrentFile implements Runnable, AutoCloseable {
 	
 	
 	TorrentMain torrentMain = null;
 	Piece pieces[] = null;
 	TorrentFileStorage torrentStorage = null;
-	List<MessageToClient> peers;
-	TrackerClient trackerClient = new TrackerClient(Consts.TRACKER_PORT_NUMBER, this);
+	//List<MessageToClient> peers;
+	TrackerClient trackerClient = null; //= new TrackerClient(Consts.TRACKER_PORT_NUMBER, this);
 	TorrentFileDescriptor descriptor;
 	
 	public TorrentFile(
+			TorrentMain torrentMain,
 			TorrentFileDescriptor descriptor, 
-			File destinationDir, 
-			boolean isSeeder
+			File destinationDir
 		) throws IOException
 	{
+		this.torrentMain = torrentMain;
 		this.descriptor = descriptor;
+		
 		File destinationFile = 
 				destinationDir.toPath().resolve(descriptor.FileName()).toFile();
-		
-		this.torrentStorage = new TorrentFileStorage(destinationFile, descriptor.FileLength());
-		
+		InitializeTorrentFile(destinationFile);
+				
 		//this.pieces = descriptor.getPieces();
 	}
 	
+	@Override
 	public void run() {
 		//creates Peers threads, 
 		/*for (int i = 0; i < peers.size(); i++) {
@@ -43,13 +46,27 @@ public class TorrentFile implements Runnable {
 		}*/
 	
 	}
+	@Override
+	public void close()
+	{
+		if(torrentStorage != null)
+		{
+			try
+			{
+				torrentStorage.close();
+			} 
+			catch(Exception ex)
+			{				
+			}
+		}
+	}
 	
 	public String getTrackerUrl() {
 		return descriptor.TrackerUrl();
 	}
 	
 	public void setPeers(List<MessageToClient> peers) {
-		this.peers = peers;
+		//this.peers = peers;
 	}
 	
 	public Piece getPiece(int index)
@@ -83,5 +100,47 @@ public class TorrentFile implements Runnable {
 		return this.torrentStorage.write(buffer, offset);
 	}
 	
+	
+	private void InitializeTorrentFile(File destinationFile) throws IOException
+	{
+		this.torrentStorage = new TorrentFileStorage(destinationFile, descriptor.FileLength());
+		InitializePieces();
+		InitializeTorrentFileUI();
+	}
+	
+	private void InitializePieces()
+	{
+		final int fileLength = descriptor.FileLength();
+		final int pieceLength = descriptor.PieceLength();
+		Vector<byte[]> hashes = descriptor.PieceHashes();
+		int currentPieceOffset = 0;
+		
+		this.pieces = new Piece[descriptor.NumberOfPieces()];
+		for(int i = 0; i < descriptor.NumberOfPieces(); ++i)
+		{
+			int thisPieceLength = Math.min(pieceLength, (fileLength - currentPieceOffset));			
+			this.pieces[i] = new Piece(this, i, currentPieceOffset, thisPieceLength, hashes.get(i));
+			currentPieceOffset += thisPieceLength;
+		}
+	}
+	private int CountValidPieces()
+	{
+		int validPiecesNumber = 0;
+		for(Piece piece : this.pieces)
+		{
+			if(piece.validate())
+				++validPiecesNumber;
+		}
+		
+		return validPiecesNumber;
+	}
+	
+	private void InitializeTorrentFileUI()
+	{
+		torrentMain.TorrentUI().setFileName(this.descriptor.FileName());
+		torrentMain.TorrentUI().setInfoHash(this.descriptor.InfoHash());
+		torrentMain.TorrentUI().setNumberOfPieces(this.descriptor.NumberOfPieces().toString());
+		torrentMain.TorrentUI().setDownloadedPieces(new Integer(CountValidPieces()).toString());
+	}
 	
 }

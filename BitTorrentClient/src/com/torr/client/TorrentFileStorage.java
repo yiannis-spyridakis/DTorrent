@@ -23,9 +23,6 @@ public class TorrentFileStorage implements AutoCloseable {
 		this.targetFile = file;
 		this.size = size;
 		
-		// TODO: check for existing file
-		this.targetFile.delete();
-		
 		this.raf = new RandomAccessFile(this.targetFile, "rw");
 		this.raf.setLength(this.size);
 		

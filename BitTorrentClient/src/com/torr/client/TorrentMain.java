@@ -12,26 +12,18 @@ import com.torr.ui.ITorrentUI;
 import com.torr.utils.SystemUtils;
 import com.torr.bencode.TorrentFileDescriptor;
 
-public class TorrentMain {
+public class TorrentMain implements AutoCloseable {
 	
-	ITorrentUI torrentUI;
-	TCPServer tcpServer = new TCPServer(this);
-	WorkspaceManager wsm;
-	HashMap<String, TorrentFile> torrentFiles = new HashMap<String, TorrentFile>();
+	private ITorrentUI torrentUI;
+	private TCPServer tcpServer = new TCPServer(this);
+	private WorkspaceManager wsm;
+	private HashMap<String, TorrentFile> torrentFiles = new HashMap<String, TorrentFile>();
 	
-	public TorrentMain(ITorrentUI torrentUI)
+	public TorrentMain(ITorrentUI torrentUI) throws Exception
 	{
 		this.torrentUI = torrentUI;
 		
-		try
-		{
-			DoFileSystemBookKeeping();
-		}
-		catch(IOException ex)
-		{
-			// TODO: See what we'll do with this!!
-		}
-		//torrentUI.printConsoleInfo("Hello from TorrentFiles!");
+		DoFileSystemBookKeeping();
 	}
 	
 	public File GetWorkspaceFolder()
@@ -45,7 +37,7 @@ public class TorrentMain {
 		if(!descriptor.IsValid())
 			throw new Exception("Invalid torrent file");		
 		
-		final String info_hash = descriptor.SHA();
+		final String info_hash = descriptor.InfoHash();
 		File torrentFolder = this.wsm.GetTorrentFolder(info_hash);
 		
 		File sourceFile = new File(filePath);
@@ -66,13 +58,23 @@ public class TorrentMain {
 				Files.copy(sourceFile.toPath(), destinationFile.toPath());
 			}
 		}
+		else
+		{
+			torrentUI.printConsoleInfo("Moving torrent file into workspace");
+			Files.copy(sourceFile.toPath(), destinationFile.toPath());
+		}
 		
-		TorrentFile torrentFile = new TorrentFile(descriptor, torrentFolder, false);
+		TorrentFile torrentFile = new TorrentFile(this, descriptor, torrentFolder);
 		torrentFiles.put(info_hash, torrentFile);
+		
+		torrentUI.printConsoleInfo("Successfully opened torrent file");
+	}
+	public ITorrentUI TorrentUI()
+	{
+		return this.torrentUI;
 	}
 	
-	
-	private void DoFileSystemBookKeeping() throws IOException
+	private void DoFileSystemBookKeeping() throws Exception
 	{
 		wsm = new WorkspaceManager(GetMainFolder());
 	}
@@ -95,6 +97,15 @@ public class TorrentMain {
 		//Peer t = new Peer(connection);		
 	}
 	
+	@Override
+	public void close()
+	{
+		wsm.close();
+		for(TorrentFile tf : torrentFiles.values())
+		{
+			tf.close();
+		}
+	}
 	
 	
 	

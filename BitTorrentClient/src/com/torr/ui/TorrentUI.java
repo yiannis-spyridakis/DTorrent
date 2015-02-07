@@ -14,7 +14,10 @@ import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.control.*;
 import javafx.scene.text.*;
+import jfx.messagebox.MessageBox;
+
 import com.torr.client.*;
+
 
 public class TorrentUI extends Application implements ITorrentUI {
 	
@@ -44,35 +47,48 @@ public class TorrentUI extends Application implements ITorrentUI {
 	
 	@Override
 	public void start(Stage myStage) {
-		System.out.println("Inside the start() method.");
 		
-		// Window title
-		myStage.setTitle("BitTorrent Client");
-
-	    // Vertically-aligned main content
-	    VBox contentBox = new VBox();
-	    VBox detailsBox = createDetailsBox();
-	    
-		contentBox.getChildren().addAll(createFileOpenPane(), detailsBox);
-		VBox.setVgrow(detailsBox, Priority.ALWAYS);
+		try
+		{			
+			System.out.println("Inside the start() method.");
+			
+			// Window title
+			myStage.setTitle("BitTorrent Client");
+	
+		    // Vertically-aligned main content
+		    VBox contentBox = new VBox();
+		    VBox detailsBox = createDetailsBox();
+		    
+			contentBox.getChildren().addAll(createFileOpenPane(), detailsBox);
+			VBox.setVgrow(detailsBox, Priority.ALWAYS);
+			
+			// The main screen pane
+			BorderPane screenPane = new BorderPane();
+			screenPane.setTop(createMenuBar());
+			screenPane.setBottom(createStatusBar());		
+			screenPane.setCenter(contentBox);
+			
+			// Create a scene 
+			Scene myScene = new Scene(screenPane, 640, 520);
+			
+			// Set the scene on the stage
+			myStage.setScene(myScene);
+			
+			// Show the stage and its scene.
+			myStage.show();	
+			
+			this.torrentMain = new TorrentMain(this);
 		
-		// The main screen pane
-		BorderPane screenPane = new BorderPane();
-		screenPane.setTop(createMenuBar());
-		screenPane.setBottom(createStatusBar());		
-		screenPane.setCenter(contentBox);
-		
-		// Create a scene 
-		Scene myScene = new Scene(screenPane, 640, 520);
-		
-		// Set the scene on the stage
-		myStage.setScene(myScene);
-		
-		// Show the stage and its scene.
-		myStage.show();	
-		
-		this.torrentMain = new TorrentMain(this);
-		
+		}
+		catch(Exception ex)
+		{
+			final int result = MessageBox.show(
+					null, 
+					"Unable to start application:\n" + ex.getMessage(), 
+					"Unable to start application", MessageBox.ICON_ERROR);
+			
+			Platform.exit();
+		}
 		
 	}
 	
@@ -82,6 +98,8 @@ public class TorrentUI extends Application implements ITorrentUI {
 	@Override
 	public void stop() {
 		System.out.println("Inisde the stop() method.");
+		if(this.torrentMain != null)
+			this.torrentMain.close();
 	}
 	
 	/*

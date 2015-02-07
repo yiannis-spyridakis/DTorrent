@@ -11,23 +11,22 @@ public class WorkspaceManager implements AutoCloseable {
 	private RandomAccessFile raf;
 	private File workspaceFolder;
 	
-	public WorkspaceManager(File programFolder) throws IOException
+	public WorkspaceManager(File programFolder) throws Exception
 	{
 		workspaceFolder = GetWorkspace(programFolder);
+		if(workspaceFolder == null)
+			throw new Exception("Unable to create workspace");
 		
-		if(workspaceFolder != null)
-		{
-			Path instanceFolderPath = Paths.get(workspaceFolder.getPath());
-			
-			// Create and lock the lock file
-			Path lockFilePath = instanceFolderPath.resolve(Consts.PROCESS_LOCK_FILE_NAME);
-			File lockFile = lockFilePath.toFile();
-			lockFile.createNewFile();	
-			
-			// Will throw if the file wasn't created successfully
-			// The file is locked for as long as the process is running
-			raf = new RandomAccessFile(lockFilePath.toFile(), "rw");
-		}
+		Path instanceFolderPath = Paths.get(workspaceFolder.getPath());
+		
+		// Create and lock the lock file
+		Path lockFilePath = instanceFolderPath.resolve(Consts.PROCESS_LOCK_FILE_NAME);
+		File lockFile = lockFilePath.toFile();
+		lockFile.createNewFile();	
+		
+		// Will throw if the file wasn't created successfully
+		// The file is locked for as long as the process is running
+		raf = new RandomAccessFile(lockFilePath.toFile(), "rw");
 	}
 	
 	
@@ -93,7 +92,7 @@ public class WorkspaceManager implements AutoCloseable {
 		workspaceFolder = newFolderPath.toFile();
 		workspaceFolder.mkdir();	
 				
-		return null;
+		return workspaceFolder;
 	}
 	
 	

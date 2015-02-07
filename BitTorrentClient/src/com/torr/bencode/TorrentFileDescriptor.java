@@ -32,13 +32,13 @@ public class TorrentFileDescriptor
     {
     	return torrent_file.piece_length;
     }
-    public String SHA()
+    public String InfoHash()
     {        
-    	return torrent_file.info_hash_as_url;
+    	return torrent_file.info_hash_as_hex;
     }
     public Integer NumberOfPieces()
     {
-	    return torrent_file.piece_hash_values_as_hex.size();
+	    return torrent_file.piece_hash_values_as_binary.size();
     }
     public Vector<byte[]> PieceHashes()
     {
