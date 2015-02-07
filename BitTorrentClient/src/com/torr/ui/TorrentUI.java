@@ -22,6 +22,7 @@ import com.torr.client.*;
 public class TorrentUI extends Application implements ITorrentUI {
 	
 	private Text statusBarText = null;
+	private Text workspaceFolderText = null;
 	private Text fileNameText = null;
 	private Text infoHashText = null;
 	private Text numberOfPiecesText = null;
@@ -69,7 +70,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 			screenPane.setCenter(contentBox);
 			
 			// Create a scene 
-			Scene myScene = new Scene(screenPane, 640, 520);
+			Scene myScene = new Scene(screenPane, 720, 520);
 			
 			// Set the scene on the stage
 			myStage.setScene(myScene);
@@ -82,12 +83,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 		}
 		catch(Exception ex)
 		{
-			final int result = MessageBox.show(
-					null, 
-					"Unable to start application:\n" + ex.getMessage(), 
-					"Unable to start application", MessageBox.ICON_ERROR);
-			
-			Platform.exit();
+			this.Quit(ex);
 		}
 		
 	}
@@ -102,13 +98,35 @@ public class TorrentUI extends Application implements ITorrentUI {
 			this.torrentMain.close();
 	}
 	
+	@Override
+	public int ShowMessageBox(final String message, final String title, final int options)
+	{
+		return MessageBox.show(null, message, title, options);		
+	}
+	
+	@Override
+	public void Quit()
+	{
+		Platform.exit();
+	}
+	@Override
+	public void Quit(Exception ex)
+	{
+		this.ShowMessageBox(
+				"Unable to continue running application:\n" + ex.getMessage(), 
+				"Unable to continue running application", MessageBox.ICON_ERROR);
+		
+		this.Quit();		
+	}
+	
+	
 	/*
 	 * 
 	 * Thread safe methods 
 	 * 
 	 */	
 	@Override
-	public void setStatusBarText(final String text)
+	public void SetStatusBarText(final String text)
 	{
         Platform.runLater(new Runnable() {
 
@@ -119,7 +137,7 @@ public class TorrentUI extends Application implements ITorrentUI {
         });				
 	}
 	@Override
-	public void setFileName(final String text)
+	public void SetFileName(final String text)
 	{
         Platform.runLater(new Runnable() {
 
@@ -130,7 +148,7 @@ public class TorrentUI extends Application implements ITorrentUI {
         });		
 	}	
 	@Override
-	public void setInfoHash(final String text)
+	public void SetInfoHash(final String text)
 	{
         Platform.runLater(new Runnable() {
 
@@ -141,7 +159,7 @@ public class TorrentUI extends Application implements ITorrentUI {
         });	
 	}
 	@Override
-	public void setNumberOfPieces(final String text)
+	public void SetNumberOfPieces(final String text)
 	{
         Platform.runLater(new Runnable() {
 
@@ -152,7 +170,7 @@ public class TorrentUI extends Application implements ITorrentUI {
         });	
 	}
 	@Override
-	public void setDownloadedPieces(final String text)
+	public void SetDownloadedPieces(final String text)
 	{
         Platform.runLater(new Runnable() {
 
@@ -163,7 +181,7 @@ public class TorrentUI extends Application implements ITorrentUI {
         });	
 	}
 	@Override
-	public void setDownloadSpeed(final int bps)
+	public void SetDownloadSpeed(final int bps)
 	{
         Platform.runLater(new Runnable() {
         	
@@ -175,7 +193,7 @@ public class TorrentUI extends Application implements ITorrentUI {
         });	
 	}
 	@Override
-	public void setPeersNumber(final String text)
+	public void SetPeersNumber(final String text)
 	{
         Platform.runLater(new Runnable() {
 
@@ -186,7 +204,7 @@ public class TorrentUI extends Application implements ITorrentUI {
         });	
 	}	
 	@Override
-	public void printConsoleInfo(final String text)
+	public void PrintConsoleInfo(final String text)
 	{
         Platform.runLater(new Runnable() {
 
@@ -196,6 +214,8 @@ public class TorrentUI extends Application implements ITorrentUI {
             }
         });	
 	}		
+	
+	
 	
 	private void addControls(ObservableList<Node> rootNodeChildren) {
 		Button btnOpen = new Button("Open Torrent File");
@@ -247,19 +267,18 @@ public class TorrentUI extends Application implements ITorrentUI {
 	    
 	    return menuBar;
 	}
-		
+	
 	
 	private VBox createDetailsBox()
 	{
 		VBox detailsBox = new VBox();
 		detailsBox.setStyle("-fx-background-color: #ffffff;");
 		
-		Font titlesFont = Font.font("Arial", FontWeight.BOLD, 20);
+		Font titlesFont = Font.font("Arial", FontWeight.BOLD, 20);			
 		
 		HBox titleBox = new HBox();
 		titleBox.setAlignment(Pos.CENTER);
-		titleBox.setPadding(new Insets(10, 0, 0, 0));
-		
+		titleBox.setPadding(new Insets(10, 0, 0, 0));		
 		Text title = new Text("File Details");
 		title.setFont(titlesFont);
 		titleBox.getChildren().add(title);
@@ -280,7 +299,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 		detailsConsoleTitleBox.setAlignment(Pos.CENTER);
 		detailsConsoleTitleBox.setPadding(new Insets(10, 0, 0, 0));
 		
-		Text detailsConsoleTitle = new Text("Details Console");
+		Text detailsConsoleTitle = new Text("Information Console");
 		detailsConsoleTitle.setFont(titlesFont);
 		detailsConsoleTitleBox.getChildren().add(detailsConsoleTitle);	
 		
@@ -293,7 +312,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 		this.consoleWrapper.setFitToWidth(true);
 		this.consoleWrapper.setContent(detailsConsole);
 		this.consoleWrapper.setVvalue(consoleWrapper.getVmin());
-		this.detailsConsole.setPrefHeight(200);
+		this.consoleWrapper.setPrefHeight(200);
 		
 		this.consoleWrapper.maxHeightProperty().addListener(new ChangeListener<Number>() {
             @Override

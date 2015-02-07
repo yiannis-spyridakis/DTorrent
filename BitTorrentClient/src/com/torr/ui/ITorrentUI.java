@@ -3,20 +3,26 @@ package com.torr.ui;
 
 public interface ITorrentUI {
 	
-	public void setStatusBarText(final String text);
-
-	public void setFileName(final String text);
+	public void Quit();
 	
-	public void setInfoHash(final String text);
-
-	public void setNumberOfPieces(final String text);
-
-	public void setDownloadedPieces(final String text);
-
-	public void setDownloadSpeed(final int bps);
-
-	public void setPeersNumber(final String text);	
+	public void Quit(Exception ex);
 	
-	public void printConsoleInfo(final String text);
+	public void SetStatusBarText(final String text);
+
+	public void SetFileName(final String text);
+	
+	public void SetInfoHash(final String text);
+
+	public void SetNumberOfPieces(final String text);
+
+	public void SetDownloadedPieces(final String text);
+
+	public void SetDownloadSpeed(final int bps);
+
+	public void SetPeersNumber(final String text);	
+	
+	public void PrintConsoleInfo(final String text);
+	
+	public int ShowMessageBox(final String message, final String title, final int options);
 	
 }

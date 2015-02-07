@@ -12,19 +12,36 @@ import com.torr.ui.ITorrentUI;
 import com.torr.utils.SystemUtils;
 import com.torr.bencode.TorrentFileDescriptor;
 
-public class TorrentMain implements AutoCloseable {
+public class TorrentMain implements AutoCloseable, Runnable {
 	
 	private ITorrentUI torrentUI;
 	private TCPServer tcpServer = new TCPServer(this);
 	private WorkspaceManager wsm;
 	private HashMap<String, TorrentFile> torrentFiles = new HashMap<String, TorrentFile>();
+	private Thread backgroundThread = null;
 	
 	public TorrentMain(ITorrentUI torrentUI) throws Exception
 	{
-		this.torrentUI = torrentUI;
+		this.torrentUI = torrentUI;		
 		
-		DoFileSystemBookKeeping();
+		// Create and start the background thread
+		backgroundThread = new Thread(this);
+		backgroundThread.start();		
 	}
+	
+	@Override
+	public void run()
+	{
+		try
+		{
+			DoFileSystemBookKeeping();
+		}
+		catch(Exception ex)
+		{
+			this.torrentUI.Quit(ex);
+		}
+	}
+	
 	
 	public File GetWorkspaceFolder()
 	{
@@ -50,24 +67,32 @@ public class TorrentMain implements AutoCloseable {
 		{
 			if(SystemUtils.FilesEqual(sourceFile, destinationFile))
 			{
-				torrentUI.printConsoleInfo("Torrent file already in workspace.");
+				torrentUI.PrintConsoleInfo("Torrent file already in workspace.");
 			}
 			else
 			{
-				torrentUI.printConsoleInfo("Replacing old version of torrent file in workspace");
+				torrentUI.PrintConsoleInfo("Replacing old version of torrent file in workspace");
 				Files.copy(sourceFile.toPath(), destinationFile.toPath());
 			}
 		}
 		else
 		{
-			torrentUI.printConsoleInfo("Moving torrent file into workspace");
+			torrentUI.PrintConsoleInfo("Moving torrent file into workspace");
 			Files.copy(sourceFile.toPath(), destinationFile.toPath());
 		}
 		
-		TorrentFile torrentFile = new TorrentFile(this, descriptor, torrentFolder);
-		torrentFiles.put(info_hash, torrentFile);
+		TorrentFile torrentFile = this.torrentFiles.get(info_hash);
+		if(torrentFile != null)
+		{
+			torrentFile.InitializeTorrentFileUI();
+		}
+		else
+		{
+			torrentFile = new TorrentFile(this, descriptor, torrentFolder);
+			torrentFiles.put(info_hash, torrentFile);
+		}		
 		
-		torrentUI.printConsoleInfo("Successfully opened torrent file");
+		torrentUI.PrintConsoleInfo("Successfully opened torrent file");
 	}
 	public ITorrentUI TorrentUI()
 	{

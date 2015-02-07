@@ -120,27 +120,29 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		{
 			int thisPieceLength = Math.min(pieceLength, (fileLength - currentPieceOffset));			
 			this.pieces[i] = new Piece(this, i, currentPieceOffset, thisPieceLength, hashes.get(i));
+			this.pieces[i].validate();
+			
 			currentPieceOffset += thisPieceLength;
 		}
 	}
-	private int CountValidPieces()
+	private int GetValidPiecesCount()
 	{
 		int validPiecesNumber = 0;
 		for(Piece piece : this.pieces)
 		{
-			if(piece.validate())
+			if(piece.isValid())
 				++validPiecesNumber;
 		}
 		
 		return validPiecesNumber;
 	}
 	
-	private void InitializeTorrentFileUI()
+	public void InitializeTorrentFileUI()
 	{
-		torrentMain.TorrentUI().setFileName(this.descriptor.FileName());
-		torrentMain.TorrentUI().setInfoHash(this.descriptor.InfoHash());
-		torrentMain.TorrentUI().setNumberOfPieces(this.descriptor.NumberOfPieces().toString());
-		torrentMain.TorrentUI().setDownloadedPieces(new Integer(CountValidPieces()).toString());
+		torrentMain.TorrentUI().SetFileName(this.descriptor.FileName());
+		torrentMain.TorrentUI().SetInfoHash(this.descriptor.InfoHash());
+		torrentMain.TorrentUI().SetNumberOfPieces(this.descriptor.NumberOfPieces().toString());
+		torrentMain.TorrentUI().SetDownloadedPieces(new Integer(GetValidPiecesCount()).toString());
 	}
 	
 }

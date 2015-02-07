@@ -120,7 +120,7 @@ public class TorrentFileHandler
 			}
 
 			// Αρχικοποίηση του byte array για τα δεδομένα του αρχείου
-                        file_bytes = new byte[(int) file_size_long];
+            file_bytes = new byte[(int) file_size_long];
 
 			int file_offset = 0;
 			int bytes_read = 0;

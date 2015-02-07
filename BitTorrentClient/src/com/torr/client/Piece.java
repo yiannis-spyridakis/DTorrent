@@ -29,7 +29,7 @@ public class Piece {
 		this.index = index;
 		this.offset = offset;
 		this.length = length;
-		this.dataBuffer = ByteBuffer.allocate(length);
+		//this.dataBuffer = ByteBuffer.allocate(length);
 		this.hash = hash;
 		this.valid = false;		
 	}
@@ -109,16 +109,15 @@ public class Piece {
 	
 	public boolean validate()
 	{
-		boolean ret =false;
 		try
 		{
-			ret = validateDirect(this.readDirect());
+			this.valid = validateDirect(this.readDirect());
 		}
 		catch(Exception ex)
 		{
-			ret = false;
+			this.valid = false;
 		}
-		return ret;
+		return this.valid;
 	}
 	
 	private boolean validateDirect(ByteBuffer dataBuffer)
