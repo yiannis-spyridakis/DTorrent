@@ -14,12 +14,14 @@ import com.torr.msgs.MessageToTracker;
 public class TrackerClient extends Thread {
 	
 	private int portId;
+	TorrentFile torrentFile;
 	
 	public MessageToTracker message;
 	
-	TrackerClient(int portId) 
+	TrackerClient(int portId, TorrentFile torrentFile) 
 	{
 		this.portId = portId;
+		this.torrentFile = torrentFile;
 		message = new MessageToTracker("sha1", "peer1", this.portId);
 	}
 	
@@ -33,9 +35,9 @@ public class TrackerClient extends Thread {
 		try
 		{
 			while(true) {
-				TorrentFileDescriptor torrentFileDescriptor = 
-						new TorrentFileDescriptor("project3.torrent");
-				requestSocket =	new	Socket(torrentFileDescriptor.TrackerUrl(), 7001);
+				/*TorrentFileDescriptor torrentFileDescriptor = 
+						new TorrentFileDescriptor("project3.torrent");*/
+				requestSocket =	new	Socket(torrentFile.getTrackerUrl(), 7001);
 				System.out.println(requestSocket.getInetAddress().getHostAddress());
 				out = new ObjectOutputStream(requestSocket.getOutputStream());
 				in = new ObjectInputStream(requestSocket.getInputStream());
@@ -44,13 +46,10 @@ public class TrackerClient extends Thread {
 			
 				List<MessageToClient> peers =(List<MessageToClient>) in.readObject();
 				System.out.println(peers);
+				torrentFile.setPeers(peers);
 				
-				/*for (int i = 0; i < peers.size(); i++) {
-					if(!peers.get(i).peer_id.equals(message.peer_id)) {
-					Thread t = new ClientPeer(peers.get(i).IP, peers.get(i).peer_id, peers.get(i).port);
-					t.start();
-					}
-				}*/
+				
+				
 				
 				sleep(1900000);
 			}
