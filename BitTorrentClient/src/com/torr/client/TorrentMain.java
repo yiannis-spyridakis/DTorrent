@@ -35,10 +35,6 @@ public class TorrentMain implements AutoCloseable, Runnable {
 		try
 		{
 			DoFileSystemBookKeeping();
-			
-			throw new Exception("Test TorrentMain exception");
-			
-			
 		}
 		catch(Exception ex)
 		{
