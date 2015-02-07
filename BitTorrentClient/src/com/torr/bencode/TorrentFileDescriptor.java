@@ -1,17 +1,25 @@
 package com.torr.bencode;
 
+import java.nio.file.Paths;
 import java.util.Vector;
+
+import org.apache.commons.io.FilenameUtils;
 
 public class TorrentFileDescriptor
 {
 	private TorrentFileHandler torrent_file_handler;
 	private TorrentFile torrent_file;
+	private String file_name;
              
 	public TorrentFileDescriptor(final String path)
 	{
 		Initialize(path);
  	}
 	
+	public String FileName()
+	{
+		return file_name;
+	}
     public String TrackerUrl()
     {
     	return torrent_file.tracker_url;
@@ -36,10 +44,16 @@ public class TorrentFileDescriptor
     {
     	return torrent_file.piece_hash_values_as_binary;
     }
-        
+    public boolean IsValid()
+    {
+    	return this.torrent_file != null;
+    }
 
 	private void Initialize(final String path)
 	{
+		String full_name = Paths.get(path).getFileName().toString();
+		file_name = FilenameUtils.removeExtension(full_name);
+		
 		torrent_file_handler = new TorrentFileHandler();
 		torrent_file = torrent_file_handler
 				.openTorrentFile(path);		

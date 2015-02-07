@@ -1,5 +1,8 @@
 package com.torr.utils;
 
+import java.io.File;
+import org.apache.commons.io.FileUtils;
+
 
 /**
  * System utilities
@@ -20,4 +23,16 @@ public class SystemUtils {
 	        return System.getProperty("user.home");
 	    return System.getProperty("user.dir");
 	}
+	public static boolean FilesEqual(File lhs, File rhs)
+	{
+		try
+		{
+			return FileUtils.contentEquals(lhs, rhs);
+		}
+		catch(Exception ex)
+		{
+			return false;
+		}
+	}
+	
 }

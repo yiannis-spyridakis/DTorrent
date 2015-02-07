@@ -11,7 +11,7 @@ import com.torr.msgs.MessageToClient;
 public class TorrentFile implements Runnable {
 	
 	
-	TorrentMain torrentFiles = null;
+	TorrentMain torrentMain = null;
 	Piece pieces[] = null;
 	TorrentFileStorage torrentStorage = null;
 	List<MessageToClient> peers;
@@ -22,8 +22,14 @@ public class TorrentFile implements Runnable {
 			TorrentFileDescriptor descriptor, 
 			File destinationDir, 
 			boolean isSeeder
-		)
+		) throws IOException
 	{
+		this.descriptor = descriptor;
+		File destinationFile = 
+				destinationDir.toPath().resolve(descriptor.FileName()).toFile();
+		
+		this.torrentStorage = new TorrentFileStorage(destinationFile, descriptor.FileLength());
+		
 		//this.pieces = descriptor.getPieces();
 	}
 	

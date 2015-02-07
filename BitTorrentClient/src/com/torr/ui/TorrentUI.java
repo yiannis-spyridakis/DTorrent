@@ -28,7 +28,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 	private ScrollPane consoleWrapper = null;
 	private VBox detailsConsole = null;
 	private boolean scrollToBottom = false;
-	private TorrentMain torrentFiles;
+	private TorrentMain torrentMain;
 	
 	public static void main(String[] args) {
 		System.out.println("Launching JavaFX application.");		
@@ -71,7 +71,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 		// Show the stage and its scene.
 		myStage.show();	
 		
-		this.torrentFiles = new TorrentMain(this);
+		this.torrentMain = new TorrentMain(this);
 		
 		
 	}
@@ -366,20 +366,30 @@ public class TorrentUI extends Application implements ITorrentUI {
 	
 	private void openTorrent()
 	{
-		FileChooser fileChooser = new FileChooser();
-		fileChooser.setTitle("Open Torrent File");
-		fileChooser.getExtensionFilters().add(
-			new FileChooser.ExtensionFilter("Torrent Files", "*.*")
-		);
-		
-		File ret = fileChooser.showOpenDialog(null);
-		if(ret != null && ret.exists())
+		try
 		{
-			printConsoleInfoInternal("Opened file: " + ret.getAbsolutePath());
+			FileChooser fileChooser = new FileChooser();
+			fileChooser.setTitle("Open Torrent File");
+			fileChooser.getExtensionFilters().add(
+				new FileChooser.ExtensionFilter("Torrent Files", "*.*")
+			);
+			
+			File ret = fileChooser.showOpenDialog(null);
+			if(ret != null && ret.exists())
+			{
+				final String filePath = ret.getAbsolutePath();
+				printConsoleInfoInternal("Opening torrent file: " + filePath);
+				torrentMain.OpenTorrentFile(filePath);
+			}
+			else
+			{
+				printConsoleInfoInternal("No file chosen.");
+			}
 		}
-		else
+		catch(Exception ex)
 		{
-			printConsoleInfoInternal("No file chosen.");
+			printConsoleInfoInternal("Unable to open torrent file:");
+			printConsoleInfoInternal(ex.getMessage());
 		}
 	}
 	private void beginDownload()

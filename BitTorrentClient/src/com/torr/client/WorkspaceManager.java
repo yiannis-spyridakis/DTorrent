@@ -36,6 +36,17 @@ public class WorkspaceManager implements AutoCloseable {
 		return this.workspaceFolder;
 	}
 	
+	// Returns true if the folder existed
+	public File GetTorrentFolder(final String info_hash)
+	{
+		Path torrentFolderPath = Paths.get(workspaceFolder.getPath()).resolve(info_hash);
+		File torrentFolder = torrentFolderPath.toFile();
+		torrentFolder.mkdir();
+		
+		return torrentFolder;
+	}
+	
+	
 	private File GetWorkspace(File programFolder) throws IOException
 	{
 		File ret = CheckForEmptySlots(programFolder);
