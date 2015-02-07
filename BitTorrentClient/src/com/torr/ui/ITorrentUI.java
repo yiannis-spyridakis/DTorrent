@@ -1,6 +1,8 @@
 package com.torr.ui;
 
+import java.util.concurrent.FutureTask;
 
+// All methods must be thread safe
 public interface ITorrentUI {
 	
 	public void Quit();
@@ -23,6 +25,6 @@ public interface ITorrentUI {
 	
 	public void PrintConsoleInfo(final String text);
 	
-	public int ShowMessageBox(final String message, final String title, final int options);
+	public FutureTask<Integer> ShowMessageBox(final String message, final String title, final int options);
 	
 }

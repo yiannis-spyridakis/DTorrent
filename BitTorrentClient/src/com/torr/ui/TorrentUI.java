@@ -16,6 +16,8 @@ import javafx.scene.control.*;
 import javafx.scene.text.*;
 import jfx.messagebox.MessageBox;
 
+import java.util.concurrent.*;
+
 import com.torr.client.*;
 
 
@@ -88,8 +90,6 @@ public class TorrentUI extends Application implements ITorrentUI {
 		
 	}
 	
-	//private void Create
-	
 	
 	@Override
 	public void stop() {
@@ -98,33 +98,50 @@ public class TorrentUI extends Application implements ITorrentUI {
 			this.torrentMain.close();
 	}
 	
+	/*
+	 * 
+	 * Thread safe methods 
+	 * 
+	 */		
+	
 	@Override
-	public int ShowMessageBox(final String message, final String title, final int options)
+	public FutureTask<Integer> ShowMessageBox(final String message, final String title, final int options)
 	{
-		return MessageBox.show(null, message, title, options);		
+		MessageBoxWrapper msb = new MessageBoxWrapper(message, title, options);
+		
+		Platform.runLater(msb);
+		return msb.GetResult();
 	}
 	
 	@Override
 	public void Quit()
 	{
-		Platform.exit();
+        Platform.runLater(new Runnable() {
+
+            @Override
+            public void run() {
+            	Platform.exit();
+            }
+        });					
 	}
 	@Override
 	public void Quit(Exception ex)
 	{
-		this.ShowMessageBox(
-				"Unable to continue running application:\n" + ex.getMessage(), 
-				"Unable to continue running application", MessageBox.ICON_ERROR);
+		try
+		{
+			// This statement blocks until the message box returns
+			this.ShowMessageBox(
+					"Unable to continue running application:\n" + ex.getMessage(), 
+					"Unable to continue running application", MessageBox.ICON_ERROR).get();
+		}
+		catch(Exception ex_inner)
+		{	
+			ex_inner.printStackTrace();
+		}
 		
 		this.Quit();		
 	}
 	
-	
-	/*
-	 * 
-	 * Thread safe methods 
-	 * 
-	 */	
 	@Override
 	public void SetStatusBarText(final String text)
 	{
@@ -479,8 +496,42 @@ public class TorrentUI extends Application implements ITorrentUI {
 		});	
 	}
 	
-	
-
-	
+	class MessageBoxWrapper implements Callable<Integer>, Runnable
+	{
+		private int msgBoxResult = 0;
+		private String message = null;
+		private String title = null;
+		private int options = 0;
+		private FutureTask<Integer> result = null;
+		
+		public MessageBoxWrapper(String message, String title, int options)
+		{
+			this.message = message;
+			this.title = title;
+			this.options = options;
+			result = new FutureTask<Integer>(this);
+		}
+		
+		public FutureTask<Integer> GetResult()
+		{
+			return this.result;
+		}
+		
+		@Override 
+		public Integer call()
+		{
+			return msgBoxResult;
+		}
+		@Override
+		public void run()
+		{
+			msgBoxResult = MessageBox.show(null, this.message, this.title, this.options);
+			result.run();
+		}
+	}	
 	
 }
+
+
+
+

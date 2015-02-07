@@ -31,12 +31,11 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		File destinationFile = 
 				destinationDir.toPath().resolve(descriptor.FileName()).toFile();
 		InitializeTorrentFile(destinationFile);
-				
-		//this.pieces = descriptor.getPieces();
 	}
 	
 	@Override
 	public void run() {
+		this.torrentMain.TorrentUI().PrintConsoleInfo("Inside TorrentMain background thread");
 		//creates Peers threads, 
 		/*for (int i = 0; i < peers.size(); i++) {
 			if(!peers.get(i).peer_id.equals(message.peer_id)) {
