@@ -85,12 +85,9 @@ public class TorrentFileHandler
 		File file = new File(file_name);
 		long file_size_long = -1;
 		byte[] file_bytes = null;
-		InputStream file_stream;
 
-		try
+		try(InputStream file_stream = new FileInputStream(file))
 		{
-			file_stream = new FileInputStream(file);
-
 			// Επιβεβαίωση οτι το αρχείο όντως υπάρχει
 			if (!file.exists())
 			{

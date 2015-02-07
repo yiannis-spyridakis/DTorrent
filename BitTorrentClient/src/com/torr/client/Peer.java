@@ -9,7 +9,6 @@ import java.text.ParseException;
 
 import com.turn.ttorrent.PeerMessage;
 import com.torr.policies.ProtocolPolicy;
-import com.torr.utils.TasksQueue;
 
 
 /**
@@ -20,7 +19,7 @@ import com.torr.utils.TasksQueue;
  * - Its public methods are thread-safe 
  *
  */
-public class Peer /*extends TasksQueue*/ implements Runnable  {
+public class Peer implements Runnable  {
 	
 //	private byte[] currentBitfield = null;
 	private Socket peerSocket = null;
