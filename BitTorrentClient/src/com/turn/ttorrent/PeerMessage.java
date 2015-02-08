@@ -177,7 +177,7 @@ public abstract class PeerMessage {
 			case CANCEL:
 				return CancelMessage.parse(buffer.slice());
 			case HANDSHAKE:
-				// TODO: delegate
+				return HandshakeMessage.parse(buffer.slice());
 			default:
 				throw new IllegalStateException("Message type should have " +
 						"been properly defined by now.");
@@ -653,7 +653,7 @@ public abstract class PeerMessage {
 			buffer.get(array_buffer);
 			String info_hash = new String(array_buffer);
 			
-			buffer.get(array_buffer)
+			buffer.get(array_buffer);
 			String peer_id = new String(array_buffer);
 			
 			return new HandshakeMessage(buffer, protocol_id, info_hash, peer_id);
