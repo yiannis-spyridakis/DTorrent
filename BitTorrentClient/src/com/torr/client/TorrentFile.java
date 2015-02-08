@@ -2,13 +2,15 @@ package com.torr.client;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Vector;
 import java.util.HashMap;
+import java.util.UUID;
 
 import com.torr.bencode.TorrentFileDescriptor;
-import com.torr.msgs.MessageToClient;
+import com.torr.trackermsgs.MessageToClient;
 
 public class TorrentFile implements Runnable, AutoCloseable {
 	
@@ -16,11 +18,12 @@ public class TorrentFile implements Runnable, AutoCloseable {
 	private TorrentMain torrentMain = null;
 	private Piece pieces[] = null;
 	private TorrentFileStorage torrentStorage = null;
-	private HashMap<String, Peer> peers;
-	private TrackerClient trackerClient = null; //= new TrackerClient(Consts.TRACKER_PORT_NUMBER, this);
+	private HashMap<String, Peer> peers = new HashMap<String, Peer>();
+	private TrackerClient trackerClient = null;
 	private TorrentFileDescriptor descriptor = null;
 	private File destinationFile = null;
 	private Thread backgroundThread = null;
+	private String peerId = null;
 	
 	public TorrentFile(
 			TorrentMain torrentMain,
@@ -33,6 +36,10 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		
 		this.destinationFile = 
 				destinationDir.toPath().resolve(descriptor.FileName()).toFile();
+		
+		UUID test = UUID.randomUUID();
+		this.peerId = "Peer " + new Long(Math.abs(test.getMostSignificantBits())).toString();
+		
 		
 		this.backgroundThread = new Thread(this);
 		this.backgroundThread.run();
@@ -60,21 +67,49 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		}
 	}
 	
-	public String getTrackerUrl() {
-		return descriptor.TrackerUrl();
+	public String getTrackerIP() {
+		String trackerUrl = descriptor.TrackerUrl();
+		return descriptor.TrackerUrl().split(":")[0];
+	}
+	public int getTrackerPort()
+	{
+		try
+		{
+			String port = descriptor.TrackerUrl().split(":")[1];
+			return Integer.parseInt(port);
+		}
+		catch(Exception ex)
+		{
+			return 0;
+		}
+	}
+	
+	
+	public String getInfoHash()
+	{
+		return descriptor.InfoHash();
+	}
+	public String getPeerId()
+	{
+		return this.peerId;
 	}
 	
 	public void updatePeersList(List<MessageToClient> messages)
 	{
 		try
 		{
+			String localIP = Inet4Address.getLocalHost().getHostAddress() 
+					+ ":" + this.torrentMain.GetTCPServerPortNumber();
+			
 			for(MessageToClient msg : messages)
 			{
-				if(!this.peers.containsKey(msg.peer_id))
+				String peerIP = msg.getIP().getHostAddress() + ":" + msg.getPort();
+				if(!peerIP.equals(localIP) && 
+				   !this.peers.containsKey(msg.peer_id))
 				{
 					this.peers.put(
 							msg.peer_id, 
-							new Peer(this, msg.getIP().toString(), msg.getPort()));
+							new Peer(this, msg.getIP().getHostAddress(), msg.getPort()));
 				}
 			}
 		}

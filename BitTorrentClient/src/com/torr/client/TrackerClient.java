@@ -6,8 +6,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.List;
 
-import com.torr.msgs.MessageToClient;
-import com.torr.msgs.MessageToTracker;
+import com.torr.trackermsgs.*;
 
 public class TrackerClient 
 	extends Thread 
@@ -24,7 +23,7 @@ public class TrackerClient
 	{
 		this.portId = portId;
 		this.torrentFile = torrentFile;
-		message = new MessageToTracker("sha1", "peer1", this.portId);
+		message = new MessageToTracker(torrentFile.getInfoHash(), torrentFile.getPeerId(), this.portId);
 		this.start();
 	}
 	
@@ -34,7 +33,7 @@ public class TrackerClient
 	{
 		while(!this.shutdownRequested) 
 		{
-			try(Socket requestSocket = new Socket(torrentFile.getTrackerUrl(), Consts.TRACKER_PORT_NUMBER);
+			try(Socket requestSocket = new Socket(torrentFile.getTrackerIP(), torrentFile.getTrackerPort());
 				ObjectOutputStream out = new ObjectOutputStream(requestSocket.getOutputStream());
 				ObjectInputStream in = new ObjectInputStream(requestSocket.getInputStream()))
 			{
@@ -42,7 +41,7 @@ public class TrackerClient
 				out.flush();
 			
 				List<MessageToClient> peers =(List<MessageToClient>) in.readObject();
-				//System.out.println(peers);
+				
 				torrentFile.updatePeersList(peers);								
 			}
 			catch (UnknownHostException unknownHost) 

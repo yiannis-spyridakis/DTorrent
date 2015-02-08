@@ -3,9 +3,11 @@ package com.torr.client;
 import java.io.File;
 import java.io.IOException;
 import java.net.Socket;
+import java.nio.file.CopyOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.concurrent.*;
 
@@ -99,7 +101,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable {
 						else
 						{
 							Log("Replacing old version of torrent file in workspace");
-							Files.copy(sourceFile.toPath(), destinationFile.toPath());
+							Files.copy(sourceFile.toPath(), destinationFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
 						}
 					}
 					else
