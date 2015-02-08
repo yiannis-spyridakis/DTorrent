@@ -1,83 +1,74 @@
 package com.torr.client;
 
-import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.List;
 
-import com.torr.bencode.TorrentFileDescriptor;
 import com.torr.msgs.MessageToClient;
 import com.torr.msgs.MessageToTracker;
 
-public class TrackerClient extends Thread {
+public class TrackerClient 
+	extends Thread 
+	implements AutoCloseable 
+{
 	
 	private int portId;
-	TorrentFile torrentFile;
+	private TorrentFile torrentFile;
+	private volatile boolean shutdownRequested = false;
 	
 	public MessageToTracker message;
 	
-	TrackerClient(int portId, TorrentFile torrentFile) 
+	TrackerClient(TorrentFile torrentFile, int portId) 
 	{
 		this.portId = portId;
 		this.torrentFile = torrentFile;
 		message = new MessageToTracker("sha1", "peer1", this.portId);
+		this.start();
 	}
 	
-	public void	run() {
-		Socket requestSocket = null;
-		ObjectOutputStream out = null;
-		ObjectInputStream in =	null;
-		
-		
-		
-		try
+	@SuppressWarnings("unchecked")
+	@Override
+	public void	run() 
+	{
+		while(!this.shutdownRequested) 
 		{
-			while(true) {
-				/*TorrentFileDescriptor torrentFileDescriptor = 
-						new TorrentFileDescriptor("project3.torrent");*/
-				requestSocket =	new	Socket(torrentFile.getTrackerUrl(), 7001);
-				System.out.println(requestSocket.getInetAddress().getHostAddress());
-				out = new ObjectOutputStream(requestSocket.getOutputStream());
-				in = new ObjectInputStream(requestSocket.getInputStream());
+			try(Socket requestSocket = new Socket(torrentFile.getTrackerUrl(), Consts.TRACKER_PORT_NUMBER);
+				ObjectOutputStream out = new ObjectOutputStream(requestSocket.getOutputStream());
+				ObjectInputStream in = new ObjectInputStream(requestSocket.getInputStream()))
+			{
 				out.writeObject(message);
 				out.flush();
 			
 				List<MessageToClient> peers =(List<MessageToClient>) in.readObject();
-				System.out.println(peers);
-				torrentFile.setPeers(peers);
-				
-				
-				
-				
+				//System.out.println(peers);
+				torrentFile.updatePeersList(peers);								
+			}
+			catch (UnknownHostException unknownHost) 
+			{
+				torrentFile.Log("Unable to connect to Tracker: Unknown host");
+			} 
+			catch (Exception ex) 
+			{
+				ex.printStackTrace();
+			}
+			
+			try
+			{
 				sleep(1900000);
 			}
-		}
-		catch (UnknownHostException unknownHost) {
-			System.err.println("You are trying to connect to an unknown host!");
-		}
-		catch(IOException ioException) {
-			ioException.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		
-		finally
-		{
-			try {
-				in.close();
-				out.close();
-				requestSocket.close();
-			}
-			catch (IOException ioException) {
-				ioException.printStackTrace();
+			catch(InterruptedException ex)
+			{
+				
 			}
 		}
+	}
+	
+	@Override
+	public void close()
+	{
+		this.shutdownRequested = true;
 	}
 	
 }

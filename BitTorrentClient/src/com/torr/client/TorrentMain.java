@@ -7,18 +7,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.concurrent.*;
 
 import com.torr.ui.ITorrentUI;
-import com.torr.utils.SystemUtils;
+import com.torr.utils.*;
 import com.torr.bencode.TorrentFileDescriptor;
 
-public class TorrentMain implements AutoCloseable, Runnable {
+public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable {
 	
 	private ITorrentUI torrentUI;
 	private TCPServer tcpServer = new TCPServer(this);
 	private WorkspaceManager wsm;
 	private HashMap<String, TorrentFile> torrentFiles = new HashMap<String, TorrentFile>();
 	private Thread backgroundThread = null;
+	private volatile boolean shutdownRequested = false;
 	
 	public TorrentMain(ITorrentUI torrentUI) throws Exception
 	{
@@ -35,11 +37,28 @@ public class TorrentMain implements AutoCloseable, Runnable {
 		try
 		{
 			DoFileSystemBookKeeping();
+			
+			while(!this.shutdownRequested)
+			{
+				this.processOutstandingTasks();
+				Thread.yield();
+			}			
+			
 		}
 		catch(Exception ex)
 		{
 			this.torrentUI.Quit(ex);
-		}
+		}				
+	}
+	
+	public void Log(String message)
+	{
+		this.torrentUI.PrintConsoleInfo(message);
+	}
+	public void Log(String message, Exception ex)
+	{
+		Log(message);
+		Log(ex.getMessage());
 	}
 	
 	
@@ -50,49 +69,66 @@ public class TorrentMain implements AutoCloseable, Runnable {
 	public void OpenTorrentFile(final String filePath) throws Exception
 	{
 		// Validate descriptor file
-		TorrentFileDescriptor descriptor = new TorrentFileDescriptor(filePath);
+		final TorrentFileDescriptor descriptor = new TorrentFileDescriptor(filePath);
 		if(!descriptor.IsValid())
 			throw new Exception("Invalid torrent file");		
 		
-		final String info_hash = descriptor.InfoHash();
-		File torrentFolder = this.wsm.GetTorrentFolder(info_hash);
-		
-		File sourceFile = new File(filePath);
-		
-		Path destinationFilePath = 
-				Paths.get(torrentFolder.getAbsolutePath()).resolve(sourceFile.getName());
-		File destinationFile = destinationFilePath.toFile();
-		
-		if(destinationFile.exists())
-		{
-			if(SystemUtils.FilesEqual(sourceFile, destinationFile))
+		final TorrentMain pThis = this;
+		this.addTask(new FutureTask<Void>(new Callable<Void>()
+		{						
+			@Override
+			public Void call()// throws Exception
 			{
-				torrentUI.PrintConsoleInfo("Torrent file already in workspace.");
+				try
+				{
+					final String info_hash = descriptor.InfoHash();
+					File torrentFolder = pThis.wsm.GetTorrentFolder(info_hash);
+					
+					File sourceFile = new File(filePath);
+					
+					Path destinationFilePath = 
+							Paths.get(torrentFolder.getAbsolutePath()).resolve(sourceFile.getName());
+					File destinationFile = destinationFilePath.toFile();
+					
+					if(destinationFile.exists())
+					{
+						if(SystemUtils.FilesEqual(sourceFile, destinationFile))
+						{
+							Log("Torrent file already in workspace.");
+						}
+						else
+						{
+							Log("Replacing old version of torrent file in workspace");
+							Files.copy(sourceFile.toPath(), destinationFile.toPath());
+						}
+					}
+					else
+					{
+						Log("Moving torrent file into workspace");
+						Files.copy(sourceFile.toPath(), destinationFile.toPath());
+					}
+					
+					TorrentFile torrentFile = torrentFiles.get(info_hash);
+					if(torrentFile != null)
+					{
+						torrentFile.InitializeTorrentFileUI();
+					}
+					else
+					{
+						torrentFile = new TorrentFile(pThis, descriptor, torrentFolder);
+						torrentFiles.put(info_hash, torrentFile);
+					}		
+					
+					Log("Successfully opened torrent file");				
+				}
+				catch(Exception ex)
+				{
+					pThis.Log("Unable to open file:", ex);
+				}
+				
+				return null;
 			}
-			else
-			{
-				torrentUI.PrintConsoleInfo("Replacing old version of torrent file in workspace");
-				Files.copy(sourceFile.toPath(), destinationFile.toPath());
-			}
-		}
-		else
-		{
-			torrentUI.PrintConsoleInfo("Moving torrent file into workspace");
-			Files.copy(sourceFile.toPath(), destinationFile.toPath());
-		}
-		
-		TorrentFile torrentFile = this.torrentFiles.get(info_hash);
-		if(torrentFile != null)
-		{
-			torrentFile.InitializeTorrentFileUI();
-		}
-		else
-		{
-			torrentFile = new TorrentFile(this, descriptor, torrentFolder);
-			torrentFiles.put(info_hash, torrentFile);
-		}		
-		
-		torrentUI.PrintConsoleInfo("Successfully opened torrent file");
+		}));
 	}
 	public ITorrentUI TorrentUI()
 	{
@@ -121,6 +157,19 @@ public class TorrentMain implements AutoCloseable, Runnable {
 		//
 		//Peer t = new Peer(connection);		
 	}
+	
+	public int GetTCPServerPortNumber()
+	{
+		try
+		{
+			return this.tcpServer.GetPortNumber().get();
+		}
+		catch(Exception ex)
+		{
+			return 0;
+		}
+	}
+	
 	
 	@Override
 	public void close()

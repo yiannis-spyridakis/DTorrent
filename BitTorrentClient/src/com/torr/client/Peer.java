@@ -31,11 +31,11 @@ public class Peer implements Runnable  {
 		= new LinkedBlockingQueue<PeerMessage>();
 	
 	// Volatiles
-	public volatile Boolean clientInterested = false;
-	public volatile Boolean peerInterested = false;
-	public volatile Boolean clientChocking = true;
-	public volatile Boolean peerChoking = true;
-	private volatile Boolean shutdownRequested = false;
+	public volatile boolean clientInterested = false;
+	public volatile boolean peerInterested = false;
+	public volatile boolean clientChocking = true;
+	public volatile boolean peerChoking = true;
+	private volatile boolean shutdownRequested = false;
 	
 	public Peer(TorrentFile torrentFile, String hostName, int portNumber) throws IOException
 	{

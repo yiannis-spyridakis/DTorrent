@@ -56,7 +56,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 			System.out.println("Inside the start() method.");
 			
 			// Window title
-			myStage.setTitle("BitTorrent Client");
+			myStage.setTitle(Consts.MAIN_WINDOW_NAME);
 	
 		    // Vertically-aligned main content
 		    VBox contentBox = new VBox();

@@ -17,7 +17,7 @@ public class TasksQueue {
 	{
 		while(!tasks.isEmpty())
 		{
-			tasks.take().get();
+			tasks.take().run();
 		}
 	}
 	

@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Vector;
+import java.util.HashMap;
 
 import com.torr.bencode.TorrentFileDescriptor;
 import com.torr.msgs.MessageToClient;
@@ -12,12 +13,14 @@ import com.torr.msgs.MessageToClient;
 public class TorrentFile implements Runnable, AutoCloseable {
 	
 	
-	TorrentMain torrentMain = null;
-	Piece pieces[] = null;
-	TorrentFileStorage torrentStorage = null;
-	//List<MessageToClient> peers;
-	TrackerClient trackerClient = null; //= new TrackerClient(Consts.TRACKER_PORT_NUMBER, this);
-	TorrentFileDescriptor descriptor;
+	private TorrentMain torrentMain = null;
+	private Piece pieces[] = null;
+	private TorrentFileStorage torrentStorage = null;
+	private HashMap<String, Peer> peers;
+	private TrackerClient trackerClient = null; //= new TrackerClient(Consts.TRACKER_PORT_NUMBER, this);
+	private TorrentFileDescriptor descriptor = null;
+	private File destinationFile = null;
+	private Thread backgroundThread = null;
 	
 	public TorrentFile(
 			TorrentMain torrentMain,
@@ -28,22 +31,19 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		this.torrentMain = torrentMain;
 		this.descriptor = descriptor;
 		
-		File destinationFile = 
+		this.destinationFile = 
 				destinationDir.toPath().resolve(descriptor.FileName()).toFile();
-		InitializeTorrentFile(destinationFile);
+		
+		this.backgroundThread = new Thread(this);
+		this.backgroundThread.run();
 	}
 	
 	@Override
-	public void run() {
-		this.torrentMain.TorrentUI().PrintConsoleInfo("Inside TorrentMain background thread");
-		//creates Peers threads, 
-		/*for (int i = 0; i < peers.size(); i++) {
-			if(!peers.get(i).peer_id.equals(message.peer_id)) {
-				Thread t = new Peer(peers.get(i).IP, peers.get(i).peer_id, peers.get(i).port);
-				t.start();
-			}
-		}*/
-	
+	public void run() {		
+		Log("Validating target file...");
+		InitializeTorrentFile(this.destinationFile);
+		
+		trackerClient = new TrackerClient(this, this.torrentMain.GetTCPServerPortNumber());
 	}
 	@Override
 	public void close()
@@ -64,8 +64,24 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		return descriptor.TrackerUrl();
 	}
 	
-	public void setPeers(List<MessageToClient> peers) {
-		//this.peers = peers;
+	public void updatePeersList(List<MessageToClient> messages)
+	{
+		try
+		{
+			for(MessageToClient msg : messages)
+			{
+				if(!this.peers.containsKey(msg.peer_id))
+				{
+					this.peers.put(
+							msg.peer_id, 
+							new Peer(this, msg.getIP().toString(), msg.getPort()));
+				}
+			}
+		}
+		catch(Exception ex)
+		{
+			Log("Unable to read peers list:", ex);
+		}
 	}
 	
 	public Piece getPiece(int index)
@@ -100,11 +116,18 @@ public class TorrentFile implements Runnable, AutoCloseable {
 	}
 	
 	
-	private void InitializeTorrentFile(File destinationFile) throws IOException
+	private void InitializeTorrentFile(File destinationFile)
 	{
-		this.torrentStorage = new TorrentFileStorage(destinationFile, descriptor.FileLength());
-		InitializePieces();
-		InitializeTorrentFileUI();
+		try
+		{
+			this.torrentStorage = new TorrentFileStorage(destinationFile, descriptor.FileLength());
+			InitializePieces();
+			InitializeTorrentFileUI();
+		}
+		catch(Exception ex)
+		{
+			Log("Unable to initialize torrent file", ex);
+		}
 	}
 	
 	private void InitializePieces()
@@ -140,8 +163,17 @@ public class TorrentFile implements Runnable, AutoCloseable {
 	{
 		torrentMain.TorrentUI().SetFileName(this.descriptor.FileName());
 		torrentMain.TorrentUI().SetInfoHash(this.descriptor.InfoHash());
-		torrentMain.TorrentUI().SetNumberOfPieces(this.descriptor.NumberOfPieces().toString());
+		torrentMain.TorrentUI().SetNumberOfPieces(this.descriptor.NumberOfPieces().toString());		
 		torrentMain.TorrentUI().SetDownloadedPieces(new Integer(GetValidPiecesCount()).toString());
+	}
+	
+	public void Log(String message)
+	{
+		torrentMain.Log(message);
+	}
+	public void Log(String message, Exception ex)
+	{
+		torrentMain.Log(message, ex);
 	}
 	
 }

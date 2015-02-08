@@ -5,15 +5,17 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.concurrent.*;
 
 //John
 public class TCPServer implements Runnable {
-	ServerSocket providerSocket;
-	Socket	connection = null;
-	ObjectOutputStream out;
-	ObjectInputStream in;
+	
+	private ServerSocket providerSocket;
+	private Socket	connection = null;
+	private ObjectOutputStream out;
+	private ObjectInputStream in;
 	private Thread backgroundThread;
-	volatile boolean portCreated = false;
+	private volatile boolean portCreated = false;
 	private TorrentMain torrentFiles = null;
 
 
@@ -24,29 +26,29 @@ public class TCPServer implements Runnable {
 		backgroundThread.start();
 	};
 
-	public void WaitForPortCreation()
+	FutureTask<Integer> GetPortNumber()
 	{
-		while(!portCreated)
-		{
-			try
+		FutureTask<Integer> ret = 
+		new FutureTask<Integer>(new Callable<Integer>(){
+			@Override
+			public Integer call()
 			{
-				Thread.sleep(50);
+				while(!portCreated)
+				{
+					try
+					{
+						Thread.sleep(50);
+					}
+					catch(InterruptedException ex)
+					{
+
+					}
+				}
+				return providerSocket.getLocalPort();
 			}
-			catch(InterruptedException ex)
-			{
-
-			}
-		}
-	}
-
-	public int socketId()
-	{
-		if(providerSocket != null)
-		{
-			return providerSocket.getLocalPort();
-		}
-
-		return 0;
+		});
+		ret.run();
+		return ret;
 	}
 
 	@Override
