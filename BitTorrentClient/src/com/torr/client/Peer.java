@@ -53,6 +53,26 @@ public class Peer implements Runnable  {
 		backgroundThread = new Thread(this);
 		backgroundThread.start();
 	}
+	
+	public Peer(IPeerRegistrar peerRegistrar, Socket peerSocket)
+	{
+		// TODO: Receive Handshake
+		
+		
+		// If torrentFile != null => the peer has been added to the torrentFiles peers collection
+		this.torrentFile = peerRegistrar.RegisterPeer(this);
+		if(this.torrentFile == null)
+		{
+			shutDown();
+		}
+		
+		
+		
+		// TODO: Send Handshake
+		torrentFile.getInfoHash();
+		torrentFile.getPeerId();
+		
+	}
 
 	
 	@Override

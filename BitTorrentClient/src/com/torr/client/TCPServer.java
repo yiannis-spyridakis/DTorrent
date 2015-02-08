@@ -16,12 +16,12 @@ public class TCPServer implements Runnable {
 	private ObjectInputStream in;
 	private Thread backgroundThread;
 	private volatile boolean portCreated = false;
-	private TorrentMain torrentFiles = null;
+	private TorrentMain torrentMain = null;
 
 
 	TCPServer(TorrentMain torrentFiles) 
 	{
-		this.torrentFiles = torrentFiles;
+		this.torrentMain = torrentFiles;
 		backgroundThread = new Thread(this);
 		backgroundThread.start();
 	};
@@ -67,7 +67,7 @@ public class TCPServer implements Runnable {
 			while(true) {
 				// Wait for connection
 				connection = providerSocket.accept();
-				torrentFiles.HandleConnection(connection);
+				torrentMain.HandleConnection(connection);
 			}
 
 		}

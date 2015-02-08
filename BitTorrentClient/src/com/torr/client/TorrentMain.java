@@ -15,7 +15,7 @@ import com.torr.ui.ITorrentUI;
 import com.torr.utils.*;
 import com.torr.bencode.TorrentFileDescriptor;
 
-public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable {
+public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, IPeerRegistrar {
 	
 	private ITorrentUI torrentUI;
 	private TCPServer tcpServer = new TCPServer(this);
@@ -53,6 +53,13 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable {
 		}				
 	}
 	
+	@Override
+	public TorrentFile RegisterPeer(Peer peer)
+	{
+		// TODO: Implement
+		return null;
+	}
+	
 	public void Log(String message)
 	{
 		this.torrentUI.PrintConsoleInfo(message);
@@ -77,7 +84,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable {
 		
 		final TorrentMain pThis = this;
 		this.addTask(new FutureTask<Void>(new Callable<Void>()
-		{						
+		{							
 			@Override
 			public Void call()// throws Exception
 			{
@@ -156,8 +163,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable {
 	}
 	
 	public void HandleConnection(Socket connection) throws IOException {
-		//
-		//Peer t = new Peer(connection);		
+		Peer t = new Peer(this, connection);		
 	}
 	
 	public int GetTCPServerPortNumber()
