@@ -64,6 +64,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	public TorrentFile RegisterPeer(Peer peer, PeerMessage.HandshakeMessage handshakeMsg)
 	{
 		// TODO: Implement
+		Log("Registering peer " + peer.GetPeerId());
 		return null;
 	}
 	

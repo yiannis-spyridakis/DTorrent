@@ -38,55 +38,84 @@ public class Peer implements Runnable  {
 	public volatile boolean peerChoking = true;
 	private volatile boolean shutdownRequested = false;
 	
+	
+	private Peer(Socket peerSocket)
+	{
+		this.peerSocket = peerSocket;
+	}
 	public Peer(TorrentFile torrentFile, String hostName, int portNumber) throws Exception
 	{
 		this(torrentFile, new Socket(hostName, portNumber));
 	}
 	public Peer(TorrentFile torrentFile, Socket peerSocket) throws Exception
 	{
-		this.torrentFile = torrentFile;		
-		InitializeSocket(peerSocket);	
+		this(peerSocket);		
+		this.torrentFile = torrentFile;
 		
 		// Create and start the background thread
 		backgroundThread = new Thread(this);
 		backgroundThread.start();
-	
+			
 		SendHandshake();
 	}
 	
 	public Peer(IPeerRegistrar peerRegistrar, Socket peerSocket) throws Exception
 	{
-		InitializeSocket(peerSocket);		
+		this(peerSocket);		
 		
 		// If torrentFile != null => the peer has been added to the torrentFiles peers collection
+		InitializeStreams();
 		PeerMessage.HandshakeMessage inMsg = ReadHandshake();
-		if(inMsg == null ||
-		   (this.torrentFile = peerRegistrar.RegisterPeer(this, inMsg)) == null)
+		
+		boolean shut_down = false;
+		if(inMsg != null)
+		{
+			this.peerId = inMsg.getPeerId();
+			this.torrentFile = peerRegistrar.RegisterPeer(this, inMsg);
+			shut_down = (this.torrentFile == null);
+		}
+		else
+		{
+			shut_down = true;
+		}
+		if(shut_down)
 		{
 			shutDown();
 			return;
 		}
 		
-		this.peerId = inMsg.getPeerId();
-		
-		SendHandshake();
-		
 		// Create and start the background thread
 		backgroundThread = new Thread(this);
 		backgroundThread.start();	
 		
-			
+		SendHandshake();
 	}
-	private void InitializeSocket(Socket peerSocket) throws IOException
+	private boolean InitializeStreams()
 	{
-		this.peerSocket = peerSocket;
-		this.inputStream = new ObjectInputStream(this.peerSocket.getInputStream());
-		this.outputStream = new ObjectOutputStream(this.peerSocket.getOutputStream());		
+		if(this.peerSocket == null)
+			return false;
+		try
+		{
+			if(this.outputStream == null)
+				this.outputStream = new ObjectOutputStream(peerSocket.getOutputStream());
+			if(this.inputStream == null)
+				this.inputStream = new ObjectInputStream(peerSocket.getInputStream());
+		}
+		catch(IOException ex)
+		{
+			ex.printStackTrace();
+			return false;
+		}		
+		
+		return (this.outputStream != null && this.inputStream != null);		
 	}
 	
 	@Override
 	public void run()
 	{
+		if(!InitializeStreams())
+			return;
+		
 		while(!this.shutdownRequested)
 		{		
 			Boolean sentMessage = trySendNextMessage();
@@ -189,14 +218,13 @@ public class Peer implements Runnable  {
 	
 	// Returns true if a message is read
 	private Boolean tryReadNextMessage()
-	{
-		//byte[] messageBytes = new byte[ProtocolPolicy.BLOCK_SIZE];		
+	{		
 		Boolean messageRead = false;
-			
-		int bytesRead = 0;
+		
 		try
 		{	
 			handleMessage(readPeerMessage());
+			messageRead = true;
 		}
 		catch(Exception ex)
 		{
@@ -240,7 +268,7 @@ public class Peer implements Runnable  {
 	{
 		try
 		{
-		return (PeerMessage)this.inputStream.readObject();
+			return (PeerMessage)this.inputStream.readObject();
 		}
 		catch(Exception ex)
 		{
@@ -248,15 +276,6 @@ public class Peer implements Runnable  {
 			return null;
 		}
 	}
-	
-	
-//	private void handleMessage(ByteBuffer messageBuffer) throws ParseException
-//	{
-//		messageBuffer.rewind();
-//		
-//		PeerMessage msg = PeerMessage.parse(messageBuffer);
-//		handleMessage(msg);		
-//	}
 	
 	private void handleMessage(PeerMessage msg)
 	{
