@@ -23,6 +23,7 @@ public class TorrentFile implements Runnable, AutoCloseable {
 	private TorrentFileDescriptor descriptor = null;
 	private File destinationFile = null;
 	private Thread backgroundThread = null;
+	private int bitField[];
 	
 	public TorrentFile(
 			TorrentMain torrentMain,
@@ -137,6 +138,11 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		
 		return this.pieces[index];
 	}
+	
+	private void setPieceState(int index, int state) {
+		this.pieces[index].setState( state );
+	}
+	
 	public int getPieceCount()
 	{
 		if(pieces == null)
@@ -178,14 +184,17 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		int currentPieceOffset = 0;
 		
 		this.pieces = new Piece[descriptor.NumberOfPieces()];
+		this.bitField = new int[descriptor.NumberOfPieces()];
 		for(int i = 0; i < descriptor.NumberOfPieces(); ++i)
 		{
 			int thisPieceLength = Math.min(pieceLength, (fileLength - currentPieceOffset));			
 			this.pieces[i] = new Piece(this, i, currentPieceOffset, thisPieceLength, hashes.get(i));
 			this.pieces[i].validate();
+			this.bitField[i] = pieces[i].getState();
 			
 			currentPieceOffset += thisPieceLength;
 		}
+		
 	}
 	private int GetValidPiecesCount()
 	{

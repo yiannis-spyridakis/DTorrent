@@ -17,6 +17,7 @@ public class Piece {
 	
 	private byte[] hash;
 	private boolean valid;
+	private int state;
 	
 	public Piece(TorrentFile torrentFile, int index, int offset, int length, byte[] hash)
 	{
@@ -31,12 +32,19 @@ public class Piece {
 		this.length = length;
 		//this.dataBuffer = ByteBuffer.allocate(length);
 		this.hash = hash;
-		this.valid = false;		
+		this.valid = false;
+		this.state = -1;
 	}
 	
 	public void setTorrentFile(TorrentFile torrentFile)
 	{
 		this.torrentFile = torrentFile;
+	}
+	public void setState(int state) {
+		this.state = state;
+	}
+	public int getState() {
+		return state;
 	}
 	public int getIndex()
 	{
@@ -112,6 +120,7 @@ public class Piece {
 		try
 		{
 			this.valid = validateDirect(this.readDirect());
+			this.state = 1;
 		}
 		catch(Exception ex)
 		{
@@ -149,5 +158,7 @@ public class Piece {
 			this.dataBuffer = ByteBuffer.allocate((int)this.getLength());
 		}
 	}
+	
+	
 	
 }
