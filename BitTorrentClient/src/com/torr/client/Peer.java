@@ -2,7 +2,9 @@ package com.torr.client;
 
 import java.io.*;
 import java.net.*;
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Queue;
 import java.util.concurrent.*;
 import java.nio.*;
 import java.text.ParseException;
@@ -28,8 +30,12 @@ public class Peer implements Runnable  {
 	private ObjectOutputStream outputStream = null;
 	private Thread backgroundThread = null;
 	private LinkedBlockingQueue<PeerMessage> outQueue
-		= new LinkedBlockingQueue<PeerMessage>();
+				= new LinkedBlockingQueue<PeerMessage>();
+	private LinkedBlockingQueue<PeerMessage.RequestMessage> pieceRequests 
+				= new LinkedBlockingQueue<PeerMessage.RequestMessage>();
 	private String peerId = null;
+	private Piece inPiece = null;
+	private Piece outPiece = null;
 	
 	// Volatiles
 	public volatile boolean clientInterested = false;
@@ -72,7 +78,15 @@ public class Peer implements Runnable  {
 		{
 			this.peerId = inMsg.getPeerId();
 			this.torrentFile = peerRegistrar.RegisterPeer(this, inMsg);
-			shut_down = (this.torrentFile == null);
+			if(this.torrentFile != null)
+			{
+				torrentFile.Log("Established connection with Peer [" + this.GetPeerId() + 
+						"] for file [" + inMsg.getInfoHash() + "]");
+			}
+			else
+			{
+				shut_down = true;
+			}
 		}
 		else
 		{
@@ -334,7 +348,8 @@ public class Peer implements Runnable  {
 	{
 	}
 	private void HandlePeerRequest(PeerMessage.RequestMessage msg)
-	{		
+	{
+		pieceRequests.add(msg);
 	}
 	private void HandlePieceMessage(PeerMessage.PieceMessage msg)
 	{

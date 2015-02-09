@@ -63,9 +63,10 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	@Override
 	public TorrentFile RegisterPeer(Peer peer, PeerMessage.HandshakeMessage handshakeMsg)
 	{
-		// TODO: Implement
-		Log("Registering peer " + peer.GetPeerId());
-		return null;
+		Log("Accepted request from Peer [" + peer.GetPeerId() + 
+				"] for file [" + handshakeMsg.getInfoHash() + "]");
+		
+		return this.torrentFiles.get(handshakeMsg.getInfoHash());
 	}
 	
 	public String GetPeerId()
@@ -141,7 +142,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 						torrentFiles.put(info_hash, torrentFile);
 					}		
 					
-					Log("Successfully opened torrent file");				
+					Log("Successfully opened torrent file [" + torrentFile.getInfoHash() + "]");				
 				}
 				catch(Exception ex)
 				{
