@@ -1,8 +1,13 @@
 package com.torr.client;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
+import com.torr.trackermsgs.MessageToClient;
 import com.torr.utils.HashingUtils;
 
 
@@ -17,7 +22,9 @@ public class Piece {
 	
 	private byte[] hash;
 	private boolean valid;
-	private int state;
+	private enum States {UNAVAILABLE, AVAILABLE, DOWNLOADED };
+	private States state;
+	private HashMap<String, Peer> mySeeders = new HashMap<String, Peer>();
 	
 	public Piece(TorrentFile torrentFile, int index, int offset, int length, byte[] hash)
 	{
@@ -33,17 +40,17 @@ public class Piece {
 		//this.dataBuffer = ByteBuffer.allocate(length);
 		this.hash = hash;
 		this.valid = false;
-		this.state = -1;
+		this.state = States.UNAVAILABLE;
 	}
 	
 	public void setTorrentFile(TorrentFile torrentFile)
 	{
 		this.torrentFile = torrentFile;
 	}
-	public void setState(int state) {
+	public void setState(States state) {
 		this.state = state;
 	}
-	public int getState() {
+	public States getState() {
 		return state;
 	}
 	public int getIndex()
@@ -65,6 +72,13 @@ public class Piece {
 	public byte[] getHash()
 	{
 		return this.hash;
+	}
+	
+	public void addSeeder(String peerId ,Peer peer) {
+		this.mySeeders.put(peerId, peer);
+	}
+	public void deletePeer(String peerId) {
+		this.mySeeders.remove(peerId);
 	}
 	
 	public ByteBuffer read() throws Exception
@@ -120,7 +134,7 @@ public class Piece {
 		try
 		{
 			this.valid = validateDirect(this.readDirect());
-			this.state = 1;
+			this.state = States.AVAILABLE;
 		}
 		catch(Exception ex)
 		{
