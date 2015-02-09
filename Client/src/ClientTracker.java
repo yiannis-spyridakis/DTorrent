@@ -1,23 +1,22 @@
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
+import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
-import com.torr.trackermsgs.MessageToClient;
-import com.torr.trackermsgs.MessageToTracker;
+import com.torr.msgs.PeerMessage;
 
 public class ClientTracker extends Thread {
 	
 	private int portId;
 	
-	public MessageToTracker message;
+	//public MessageToTracker message;
 	
 	ClientTracker(int portId) 
 	{
 		this.portId = portId;
-		message = new MessageToTracker("sha1", "peer1", this.portId);
+		//message = new MessageToTracker("sha1", "peer1", this.portId);
 	}
 	
 	public void	run() {
@@ -28,39 +27,78 @@ public class ClientTracker extends Thread {
 		
 		
 		try
-		{
-			while(true) {
-				requestSocket =	new	Socket("10.0.1.154", 7001);
-				System.out.println(requestSocket.getInetAddress().getHostAddress());
-				out = new ObjectOutputStream(requestSocket.getOutputStream());
-				in = new ObjectInputStream(requestSocket.getInputStream());
-				out.writeObject(message);
-				out.flush();
+		{		
+			requestSocket =	new	Socket(InetAddress.getLocalHost(), this.portId);
+			System.out.println("Client listening at: " + requestSocket.getInetAddress().getHostAddress());
 			
-				List<MessageToClient> peers =(List<MessageToClient>) in.readObject();
-				System.out.println(peers);
+			out = new ObjectOutputStream(requestSocket.getOutputStream());
+			in = new ObjectInputStream(requestSocket.getInputStream());
+		
+			while(true) {				
+				PeerMessage msg = (PeerMessage)in.readObject();
+				switch(msg.getType())
+				{
+				case KEEP_ALIVE:
+					PeerMessage.KeepAliveMessage alivemsg = (PeerMessage.KeepAliveMessage)msg;
+					System.out.println("Client received keep alive message");
+					break;
+				case CHOKE:
+					PeerMessage.ChokeMessage chokemsg = (PeerMessage.ChokeMessage)msg;
+					System.out.println("Client received choke message");
+					break;
+				case UNCHOKE:
+					PeerMessage.UnchokeMessage unchokemsg = (PeerMessage.UnchokeMessage)msg;
+					System.out.println("Client received unchoke message");
+					break;
+				case INTERESTED:
+					PeerMessage.InterestedMessage intmsg = (PeerMessage.InterestedMessage)msg;
+					System.out.println("Client received interested message");
+					break;
+				case NOT_INTERESTED:
+					PeerMessage.NotInterestedMessage nintmsg = (PeerMessage.NotInterestedMessage)msg;
+					System.out.println("Client received 'not interested' message");
+					break;
+				case HAVE:
+					PeerMessage.HaveMessage havemsg = (PeerMessage.HaveMessage)msg;
+					System.out.println("Client received have message: #" + havemsg.getPieceIndex());					
+					break;
+				case BITFIELD:
+					PeerMessage.BitfieldMessage bfmsg = (PeerMessage.BitfieldMessage)msg;
+					System.out.println("Client received bitfield message:" + bfmsg);					
+					break;					
+				case REQUEST:
+					PeerMessage.RequestMessage rmsg = (PeerMessage.RequestMessage)msg;
+					System.out.println("Client received request message:" + rmsg);					
+					break;					
+				case PIECE:
+					PeerMessage.PieceMessage pmsg = (PeerMessage.PieceMessage)msg;
+					System.out.println("Client received piece message:" + pmsg);					
+					break;
+				case CANCEL:
+					PeerMessage.CancelMessage cmsg = (PeerMessage.CancelMessage)msg;
+					System.out.println("Client received cancel message:" + cmsg);					
+					break;					
+				case HANDSHAKE:
+					PeerMessage.HandshakeMessage hmsg = (PeerMessage.HandshakeMessage)msg;
+					System.out.println("Client received handshake message:" + hmsg);					
+					break;					
+					
+				default:
+					break;
+				}				
 				
-				/*for (int i = 0; i < peers.size(); i++) {
-					if(!peers.get(i).peer_id.equals(message.peer_id)) {
-					Thread t = new ClientPeer(peers.get(i).IP, peers.get(i).peer_id, peers.get(i).port);
-					t.start();
-					}
-				}*/
-				
-				sleep(1900000);
+				sleep(100);
 			}
 		}
 		catch (UnknownHostException unknownHost) {
 			System.err.println("You are trying to connect to an unknown host!");
 		}
-		catch(IOException ioException) {
-			ioException.printStackTrace();
-		} catch (ClassNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (InterruptedException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		catch(EOFException ex)
+		{
+			System.out.println("Connection ended");
+		}
+		catch(Exception ex) {
+			ex.printStackTrace();
 		}
 		
 		finally

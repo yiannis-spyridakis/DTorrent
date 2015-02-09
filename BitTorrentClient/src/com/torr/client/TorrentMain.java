@@ -15,7 +15,7 @@ import java.util.concurrent.*;
 import com.torr.ui.ITorrentUI;
 import com.torr.utils.*;
 import com.torr.bencode.TorrentFileDescriptor;
-import com.torr.msgs.HandshakeMessage;
+import com.torr.msgs.PeerMessage;
 
 public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, IPeerRegistrar {
 	
@@ -61,7 +61,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	}
 	
 	@Override
-	public TorrentFile RegisterPeer(Peer peer, HandshakeMessage handshakeMsg)
+	public TorrentFile RegisterPeer(Peer peer, PeerMessage.HandshakeMessage handshakeMsg)
 	{
 		// TODO: Implement
 		return null;
