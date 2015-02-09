@@ -34,8 +34,7 @@ public class Peer implements Runnable  {
 	private LinkedBlockingQueue<PeerMessage.RequestMessage> pieceRequests 
 				= new LinkedBlockingQueue<PeerMessage.RequestMessage>();
 	private String peerId = null;
-	private Piece inPiece = null;
-	private Piece outPiece = null;
+	private BitSet peerBitField = null;
 	
 	// Volatiles
 	public volatile boolean clientInterested = false;
@@ -63,6 +62,7 @@ public class Peer implements Runnable  {
 		backgroundThread.start();
 			
 		SendHandshake();
+		SendBitfield();
 	}
 	
 	public Peer(IPeerRegistrar peerRegistrar, Socket peerSocket) throws Exception
@@ -103,6 +103,7 @@ public class Peer implements Runnable  {
 		backgroundThread.start();	
 		
 		SendHandshake();
+		SendBitfield();
 	}
 	private boolean InitializeStreams()
 	{
@@ -202,11 +203,9 @@ public class Peer implements Runnable  {
 		queueOutgoingMessage(new PeerMessage.HaveMessage(pieceIndex));
 	}
 	
-	// TODO: Add argument and replace dummy BitSet
 	public void SendBitfield()
 	{
-		BitSet dummy = new BitSet();
-		queueOutgoingMessage(new PeerMessage.BitfieldMessage(dummy));
+		queueOutgoingMessage(new PeerMessage.BitfieldMessage(this.torrentFile.getBitField()));
 	}
 	public void SendRequest(final int piece, final int offset, final int length)
 	{
@@ -346,6 +345,7 @@ public class Peer implements Runnable  {
 	}
 	private void HandlePeerBitfield(PeerMessage.BitfieldMessage msg)
 	{
+		this.peerBitField = msg.getBitfield();
 	}
 	private void HandlePeerRequest(PeerMessage.RequestMessage msg)
 	{

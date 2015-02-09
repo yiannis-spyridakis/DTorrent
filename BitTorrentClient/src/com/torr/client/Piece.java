@@ -22,9 +22,9 @@ public class Piece {
 	
 	private byte[] hash;
 	private boolean valid;
-	private enum States {UNAVAILABLE, AVAILABLE, DOWNLOADED };
+	public enum States {UNAVAILABLE, AVAILABLE, DOWNLOADED };
 	private States state;
-	private HashMap<String, Peer> mySeeders = new HashMap<String, Peer>();
+	private HashMap<String, Peer> seedingPeers = new HashMap<String, Peer>();
 	
 	public Piece(TorrentFile torrentFile, int index, int offset, int length, byte[] hash)
 	{
@@ -37,7 +37,6 @@ public class Piece {
 		this.index = index;
 		this.offset = offset;
 		this.length = length;
-		//this.dataBuffer = ByteBuffer.allocate(length);
 		this.hash = hash;
 		this.valid = false;
 		this.state = States.UNAVAILABLE;
@@ -74,11 +73,11 @@ public class Piece {
 		return this.hash;
 	}
 	
-	public void addSeeder(String peerId ,Peer peer) {
-		this.mySeeders.put(peerId, peer);
+	public void addPeer(String peerId ,Peer peer) {
+		this.seedingPeers.put(peerId, peer);
 	}
 	public void deletePeer(String peerId) {
-		this.mySeeders.remove(peerId);
+		this.seedingPeers.remove(peerId);
 	}
 	
 	public ByteBuffer read() throws Exception

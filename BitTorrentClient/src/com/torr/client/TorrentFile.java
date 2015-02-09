@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.nio.ByteBuffer;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Vector;
 import java.util.HashMap;
@@ -23,7 +24,7 @@ public class TorrentFile implements Runnable, AutoCloseable {
 	private TorrentFileDescriptor descriptor = null;
 	private File destinationFile = null;
 	private Thread backgroundThread = null;
-	private int bitField[];
+	//private int bitField[];
 	
 	public TorrentFile(
 			TorrentMain torrentMain,
@@ -139,9 +140,24 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		return this.pieces[index];
 	}
 	
-	private void setPieceState(int index, int state) {
+	private void setPieceState(int index, Piece.States state) {
 		this.pieces[index].setState( state );
 	}
+	
+	public BitSet getBitField()
+	{
+		BitSet bitfield = new BitSet(this.pieces.length);
+		for(int i = 0; i < this.pieces.length; ++ i)
+		{
+			Piece piece = pieces[i];
+			if(piece.getState() == Piece.States.DOWNLOADED)
+			{
+				bitfield.set(i);
+			}
+		}
+		return bitfield;
+	}
+	
 	
 	public int getPieceCount()
 	{
@@ -184,13 +200,13 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		int currentPieceOffset = 0;
 		
 		this.pieces = new Piece[descriptor.NumberOfPieces()];
-		this.bitField = new int[descriptor.NumberOfPieces()];
+		//this.bitField = new int[descriptor.NumberOfPieces()];
 		for(int i = 0; i < descriptor.NumberOfPieces(); ++i)
 		{
 			int thisPieceLength = Math.min(pieceLength, (fileLength - currentPieceOffset));			
 			this.pieces[i] = new Piece(this, i, currentPieceOffset, thisPieceLength, hashes.get(i));
 			this.pieces[i].validate();
-			this.bitField[i] = pieces[i].getState();
+			//this.bitField[i] = pieces[i].getState();
 			
 			currentPieceOffset += thisPieceLength;
 		}
