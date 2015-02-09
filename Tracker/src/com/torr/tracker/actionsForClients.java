@@ -5,10 +5,8 @@ import java.io.ObjectOutputStream;
 import java.net.InetAddress;
 import java.net.Socket;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import com.torr.trackermsgs.MessageToClient;
 import com.torr.trackermsgs.MessageToTracker;
@@ -34,6 +32,12 @@ public class actionsForClients extends Thread {
 		try
 		{	
 			MessageToTracker message =(MessageToTracker) in.readObject();
+			System.out.print(
+					"Accepted connection from peer " + message.peer_id + "\n" +
+					"IP Address: " + IP.getHostAddress() + ", Port: " + message.port + "\n" + 
+					"Requested torrent info hash: " + message.getInfo_hash() + "\n"				
+				);
+			
 			MessageToClient messageC = new MessageToClient(message.getPeer_id(), IP, message.getPort());
 			messageC.timer = System.currentTimeMillis();
 			boolean found = false;
