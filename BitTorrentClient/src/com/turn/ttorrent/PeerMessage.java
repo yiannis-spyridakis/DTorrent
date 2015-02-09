@@ -19,6 +19,8 @@ import java.nio.ByteBuffer;
 import java.text.ParseException;
 import java.util.BitSet;
 
+import com.torr.utils.HashingUtils;
+
 /**
  * BitTorrent peer protocol messages representations.
  *
@@ -176,8 +178,6 @@ public abstract class PeerMessage {
 				return PieceMessage.parse(buffer.slice());
 			case CANCEL:
 				return CancelMessage.parse(buffer.slice());
-			case HANDSHAKE:
-				return HandshakeMessage.parse(buffer.slice());
 			default:
 				throw new IllegalStateException("Message type should have " +
 						"been properly defined by now.");
@@ -605,91 +605,7 @@ public abstract class PeerMessage {
 	}
 	
 	
-	/**
-	 * Handshake message.
-	 *
-	 * <pstrlen=v><pstr=v><reserved=8><info_hash=20><peer_id=20> 
-	 */
-	public static class HandshakeMessage extends PeerMessage {
 
-		private static final int BASE_SIZE = 49;
-		
-		private String protocol_id;
-		private String info_hash;
-		private String peer_id;
-
-		private HandshakeMessage(ByteBuffer buffer, String protocol_id,
-				String info_hash, String peer_id) {
-			super(Type.HANDSHAKE, buffer);
-			this.protocol_id = protocol_id;
-			this.info_hash = info_hash;
-			this.peer_id = peer_id;
-		}
-
-		public String getProtocolId() {
-			return this.protocol_id;
-		}
-
-		public String getInfoHash() {
-			return this.info_hash;
-		}
-
-		public String getPeerId() {
-			return this.peer_id;
-		}
-
-		public static HandshakeMessage parse(ByteBuffer buffer) 
-				throws MessageValidationException {
-			
-			byte protocol_id_len = buffer.get();
-			byte[] protocol_id_bytes = new byte[protocol_id_len];
-			buffer.get(protocol_id_bytes);			
-			String protocol_id = new String(protocol_id_bytes);
-			
-			buffer.position(buffer.position() + 8);
-			
-			byte[] array_buffer = new byte[20];
-			
-			buffer.get(array_buffer);
-			String info_hash = new String(array_buffer);
-			
-			buffer.get(array_buffer);
-			String peer_id = new String(array_buffer);
-			
-			return new HandshakeMessage(buffer, protocol_id, info_hash, peer_id);
-		}
-
-		public static HandshakeMessage craft(String protocol_id, String info_hash, String peer_id) 
-			throws Exception {
-			ByteBuffer buffer = ByteBuffer.allocateDirect(
-					protocol_id.length() + CancelMessage.BASE_SIZE);
-			
-			ValidateParemeters(protocol_id, info_hash, peer_id);
-						
-			buffer.put((byte)protocol_id.length());	// pstrlen
-			buffer.put(protocol_id.getBytes()); // protocol_id
-			buffer.put(new byte[8]); // reserved
-			buffer.put(info_hash.getBytes());  // info_hash
-			buffer.put(peer_id.getBytes()); // peer_id
-			
-			return new HandshakeMessage(buffer, protocol_id, info_hash, peer_id);
-		}
-
-		private static void ValidateParemeters(String protocol_id, String info_hash, String peer_id)
-																throws Exception
-		{
-			if(info_hash.length() != 20 ||
-			   peer_id.length() != 20)
-			{
-				throw new Exception("Invalid parameters");
-			}
-		}
-		
-		public String toString() {
-			return super.toString() + " - " + this.getProtocolId() +
-				" - " + this.getInfoHash() + " - " + this.getPeerId();
-		}
-	}	
 	
 	
 }

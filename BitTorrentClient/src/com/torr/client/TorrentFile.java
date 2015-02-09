@@ -23,7 +23,6 @@ public class TorrentFile implements Runnable, AutoCloseable {
 	private TorrentFileDescriptor descriptor = null;
 	private File destinationFile = null;
 	private Thread backgroundThread = null;
-	private String peerId = null;
 	
 	public TorrentFile(
 			TorrentMain torrentMain,
@@ -35,11 +34,7 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		this.descriptor = descriptor;
 		
 		this.destinationFile = 
-				destinationDir.toPath().resolve(descriptor.FileName()).toFile();
-		
-		UUID test = UUID.randomUUID();
-		this.peerId = "Peer " + new Long(Math.abs(test.getMostSignificantBits())).toString();
-		
+				destinationDir.toPath().resolve(descriptor.FileName()).toFile();		
 		
 		this.backgroundThread = new Thread(this);
 		this.backgroundThread.run();
@@ -68,7 +63,6 @@ public class TorrentFile implements Runnable, AutoCloseable {
 	}
 	
 	public String getTrackerIP() {
-		String trackerUrl = descriptor.TrackerUrl();
 		return descriptor.TrackerUrl().split(":")[0];
 	}
 	public int getTrackerPort()
@@ -84,15 +78,19 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		}
 	}
 	
-	
+
 	public String getInfoHash()
 	{
 		return descriptor.InfoHash();
 	}
+	
+	
 	public String getPeerId()
 	{
-		return this.peerId;
+		return torrentMain.GetPeerId();
 	}
+	
+	//public void RegisterPeer()
 	
 	public void updatePeersList(List<MessageToClient> messages)
 	{
@@ -103,13 +101,20 @@ public class TorrentFile implements Runnable, AutoCloseable {
 			
 			for(MessageToClient msg : messages)
 			{
-				String peerIP = msg.getIP().getHostAddress() + ":" + msg.getPort();
-				if(!peerIP.equals(localIP) && 
-				   !this.peers.containsKey(msg.peer_id))
+				try
 				{
-					this.peers.put(
-							msg.peer_id, 
-							new Peer(this, msg.getIP().getHostAddress(), msg.getPort()));
+					String peerIP = msg.getIP().getHostAddress() + ":" + msg.getPort();
+					if(!peerIP.equals(localIP) && 
+					   !this.peers.containsKey(msg.peer_id))
+					{
+						this.peers.put(
+								msg.peer_id, 
+								new Peer(this, msg.getIP().getHostAddress(), msg.getPort()));
+					}
+				}
+				catch(Exception ex)
+				{
+					Log("Unable to connect to peer [" + msg.peer_id + "]:", ex);
 				}
 			}
 		}

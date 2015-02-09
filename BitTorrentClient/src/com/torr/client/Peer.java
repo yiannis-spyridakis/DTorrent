@@ -9,6 +9,7 @@ import java.text.ParseException;
 
 import com.turn.ttorrent.PeerMessage;
 import com.torr.policies.ProtocolPolicy;
+import com.torr.msgs.HandshakeMessage;
 
 
 /**
@@ -29,6 +30,7 @@ public class Peer implements Runnable  {
 	private Thread backgroundThread = null;
 	private LinkedBlockingQueue<PeerMessage> outQueue
 		= new LinkedBlockingQueue<PeerMessage>();
+	private String peerId = null;
 	
 	// Volatiles
 	public volatile boolean clientInterested = false;
@@ -37,11 +39,11 @@ public class Peer implements Runnable  {
 	public volatile boolean peerChoking = true;
 	private volatile boolean shutdownRequested = false;
 	
-	public Peer(TorrentFile torrentFile, String hostName, int portNumber) throws IOException
+	public Peer(TorrentFile torrentFile, String hostName, int portNumber) throws Exception
 	{
 		this(torrentFile, new Socket(hostName, portNumber));
 	}
-	public Peer(TorrentFile torrentFile, Socket peerSocket) throws IOException
+	public Peer(TorrentFile torrentFile, Socket peerSocket) throws Exception
 	{
 		
 		this.peerSocket = peerSocket;
@@ -52,26 +54,34 @@ public class Peer implements Runnable  {
 		// Create and start the background thread
 		backgroundThread = new Thread(this);
 		backgroundThread.start();
+	
+		SendHandshake();
 	}
 	
-	public Peer(IPeerRegistrar peerRegistrar, Socket peerSocket)
+	public Peer(IPeerRegistrar peerRegistrar, Socket peerSocket) throws Exception
 	{
-		// TODO: Receive Handshake
-		
+		this.peerSocket = peerSocket;
+		this.inputStream = new BufferedInputStream(this.peerSocket.getInputStream());
+		this.outputStream = new BufferedOutputStream(this.peerSocket.getOutputStream());		
 		
 		// If torrentFile != null => the peer has been added to the torrentFiles peers collection
-		this.torrentFile = peerRegistrar.RegisterPeer(this);
-		if(this.torrentFile == null)
+		HandshakeMessage inMsg = ReadHandshake();
+		if(inMsg == null ||
+		   (this.torrentFile = peerRegistrar.RegisterPeer(this, inMsg)) == null)
 		{
 			shutDown();
+			return;
 		}
 		
+		this.peerId = inMsg.getPeerId();
 		
+		SendHandshake();
 		
-		// TODO: Send Handshake
-		torrentFile.getInfoHash();
-		torrentFile.getPeerId();
+		// Create and start the background thread
+		backgroundThread = new Thread(this);
+		backgroundThread.start();	
 		
+			
 	}
 
 	
@@ -80,8 +90,8 @@ public class Peer implements Runnable  {
 	{
 		while(!this.shutdownRequested)
 		{		
-			Boolean readMessage = tryReadNextMessage();
 			Boolean sentMessage = trySendNextMessage();
+			Boolean readMessage = tryReadNextMessage();			
 			
 			// If no data was read/written during the last loop yield execution
 			if(!(readMessage || sentMessage))
@@ -95,6 +105,11 @@ public class Peer implements Runnable  {
 	{
 		this.shutdownRequested = true;		
 	}
+	public boolean IsAlive()
+	{
+		return !this.shutdownRequested;
+	}
+	
 	
 	public void Choke(final boolean choke)
 	{
@@ -135,6 +150,10 @@ public class Peer implements Runnable  {
 	{
 		return this.peerInterested;
 	}
+	public String GetPeerId()
+	{
+		return this.peerId;
+	}
 	
 	public void SendHave(final int pieceIndex)
 	{
@@ -153,8 +172,66 @@ public class Peer implements Runnable  {
 	}
 	public void CancelRequest(final int piece, final int offset, final int length)
 	{
-		PeerMessage.CancelMessage.craft(piece, offset, length);
+		queueOutgoingMessage(
+				PeerMessage.CancelMessage.craft(piece, offset, length));
 	}
+	
+	private void SendHandshake() throws Exception
+	{
+		this.sendBlock(
+				HandshakeMessage.craft(Consts.PROTOCOL_IDENTIFIER, 
+					this.torrentFile.getInfoHash(),
+					this.torrentFile.getPeerId()).getData());
+	}
+	private HandshakeMessage ReadHandshake()
+	{
+		byte[] messageBytes = new byte[ProtocolPolicy.BLOCK_SIZE];		
+		
+		int bytesRead = 0;
+		try
+		{
+			while((bytesRead = inputStream.read(messageBytes)) > 0)
+			{
+				
+				ByteBuffer messageBuffer = ByteBuffer.allocate(bytesRead);
+				messageBuffer.put(messageBytes);					
+				
+				messageBuffer.rewind();				
+				return HandshakeMessage.parse(messageBuffer);				
+			}
+		}
+		catch(Exception ex)
+		{
+			ex.printStackTrace();
+		}	
+		
+		return null;			
+	}
+	
+//	private PeerMessage readNextMessageDirect()
+//	{
+//		byte[] messageBytes = new byte[ProtocolPolicy.BLOCK_SIZE];		
+//			
+//		int bytesRead = 0;
+//		try
+//		{
+//			if(/*inputStream.available() > 1 &&*/ (bytesRead = inputStream.read(messageBytes)) > 0)
+//			{
+//				
+//				ByteBuffer messageBuffer = ByteBuffer.allocate(bytesRead);
+//				messageBuffer.put(messageBytes);					
+//				
+//				messageBuffer.rewind();				
+//				return PeerMessage.parse(messageBuffer);				
+//			}
+//		}
+//		catch(Exception ex)
+//		{
+//			ex.printStackTrace();
+//		}	
+//		
+//		return null;	
+//	}
 	
 	// Returns true if a message is read
 	private Boolean tryReadNextMessage()
@@ -164,8 +241,8 @@ public class Peer implements Runnable  {
 			
 		int bytesRead = 0;
 		try
-		{
-			if((bytesRead = inputStream.read(messageBytes)) > 0)
+		{		
+			if( inputStream.available() > 1 && (bytesRead = inputStream.read(messageBytes)) > 0)
 			{
 				messageRead = true;
 				
@@ -193,6 +270,8 @@ public class Peer implements Runnable  {
 				PeerMessage outgoingMsg = outQueue.take();
 				sendBlock(outgoingMsg.getData());
 				OnMessageSent(outgoingMsg);
+				
+				messageSent = true;
 			}
 			catch(Exception ex)
 			{
@@ -213,6 +292,7 @@ public class Peer implements Runnable  {
 		blockBuffer.get(dataBytes);
 		
 		this.outputStream.write(dataBytes);
+		this.outputStream.flush();
 	}
 	
 	
@@ -257,7 +337,7 @@ public class Peer implements Runnable  {
 			break;
 		case CANCEL:
 			// No need to support
-			break;		
+			break;
 		}
 	}
 	
@@ -286,7 +366,6 @@ public class Peer implements Runnable  {
 	private void HandlePieceMessage(PeerMessage.PieceMessage msg)
 	{
 	}
-	
 	
 	private void OnMessageSent(PeerMessage msg)
 	{
@@ -318,8 +397,9 @@ public class Peer implements Runnable  {
 			OnPieceSent((PeerMessage.PieceMessage)msg);
 			break;
 		case CANCEL:
-			// No need to support
-			break;		
+			break;
+		case HANDSHAKE:
+			break;
 		}		
 	}	
 	

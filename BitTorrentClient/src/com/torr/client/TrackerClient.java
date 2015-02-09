@@ -50,6 +50,7 @@ public class TrackerClient
 			} 
 			catch (Exception ex) 
 			{
+				torrentFile.Log("Unable to connect to Tracker", ex);
 				ex.printStackTrace();
 			}
 			

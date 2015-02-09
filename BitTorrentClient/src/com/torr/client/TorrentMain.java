@@ -9,11 +9,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
+import java.util.UUID;
 import java.util.concurrent.*;
 
 import com.torr.ui.ITorrentUI;
 import com.torr.utils.*;
 import com.torr.bencode.TorrentFileDescriptor;
+import com.torr.msgs.HandshakeMessage;
 
 public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, IPeerRegistrar {
 	
@@ -22,11 +24,16 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	private WorkspaceManager wsm;
 	private HashMap<String, TorrentFile> torrentFiles = new HashMap<String, TorrentFile>();
 	private Thread backgroundThread = null;
+	private String peerId = null;
 	private volatile boolean shutdownRequested = false;
 	
 	public TorrentMain(ITorrentUI torrentUI) throws Exception
 	{
 		this.torrentUI = torrentUI;		
+		
+		UUID test = UUID.randomUUID();
+		this.peerId = Consts.PEER_ID_PREFIX + new Long(Math.abs(test.getMostSignificantBits())).toString();
+		this.peerId = peerId.substring(0, 20);		
 		
 		// Create and start the background thread
 		backgroundThread = new Thread(this);
@@ -54,10 +61,15 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	}
 	
 	@Override
-	public TorrentFile RegisterPeer(Peer peer)
+	public TorrentFile RegisterPeer(Peer peer, HandshakeMessage handshakeMsg)
 	{
 		// TODO: Implement
 		return null;
+	}
+	
+	public String GetPeerId()
+	{
+		return this.peerId;
 	}
 	
 	public void Log(String message)
@@ -162,7 +174,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 		return ret;
 	}
 	
-	public void HandleConnection(Socket connection) throws IOException {
+	public void HandleConnection(Socket connection) throws Exception {
 		Peer t = new Peer(this, connection);		
 	}
 	

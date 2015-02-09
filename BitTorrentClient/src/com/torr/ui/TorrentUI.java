@@ -34,7 +34,8 @@ public class TorrentUI extends Application implements ITorrentUI {
 	private ScrollPane consoleWrapper = null;
 	private VBox detailsConsole = null;
 	private boolean scrollToBottom = false;
-	private TorrentMain torrentMain;
+	private TorrentMain torrentMain = null;
+	private Stage mainStage = null;
 	
 	public static void main(String[] args) {
 		System.out.println("Launching JavaFX application.");		
@@ -49,14 +50,13 @@ public class TorrentUI extends Application implements ITorrentUI {
 	}
 	
 	@Override
-	public void start(Stage myStage) {
+	public void start(Stage stage) {
+		
+		mainStage = stage;
 		
 		try
 		{			
 			System.out.println("Inside the start() method.");
-			
-			// Window title
-			myStage.setTitle(Consts.MAIN_WINDOW_NAME);
 	
 		    // Vertically-aligned main content
 		    VBox contentBox = new VBox();
@@ -75,12 +75,18 @@ public class TorrentUI extends Application implements ITorrentUI {
 			Scene myScene = new Scene(screenPane, 720, 520);
 			
 			// Set the scene on the stage
-			myStage.setScene(myScene);
-			
-			// Show the stage and its scene.
-			myStage.show();	
+			stage.setScene(myScene);
 			
 			this.torrentMain = new TorrentMain(this);
+			
+			// Window title
+			stage.setTitle(String.format(Consts.MAIN_WINDOW_NAME, torrentMain.GetPeerId()));
+			
+			
+			// Show the stage and its scene.
+			stage.show();	
+			
+			
 		
 		}
 		catch(Exception ex)

@@ -36,6 +36,11 @@ public class TorrentFileDescriptor
     {        
     	return torrent_file.info_hash_as_hex;
     }
+//    public byte[] InfoHashBinary()
+//    {
+//    	return torrent_file.info_hash_as_binary;
+//    }
+    
     public Integer NumberOfPieces()
     {
 	    return torrent_file.piece_hash_values_as_binary.size();
