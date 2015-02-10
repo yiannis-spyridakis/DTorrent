@@ -8,9 +8,9 @@ import java.util.BitSet;
 import java.util.List;
 import java.util.Vector;
 import java.util.HashMap;
-import java.util.UUID;
 
 import com.torr.bencode.TorrentFileDescriptor;
+import com.torr.policies.PieceSelectionPolicy;
 import com.torr.trackermsgs.MessageToClient;
 
 public class TorrentFile implements Runnable, AutoCloseable {
@@ -24,7 +24,7 @@ public class TorrentFile implements Runnable, AutoCloseable {
 	private TorrentFileDescriptor descriptor = null;
 	private File destinationFile = null;
 	private Thread backgroundThread = null;
-	//private int bitField[];
+	private PieceSelectionPolicy pieceSelectionPolicy = new PieceSelectionPolicy(pieces);
 	
 	public TorrentFile(
 			TorrentMain torrentMain,
@@ -92,8 +92,6 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		return torrentMain.GetPeerId();
 	}
 	
-	//public void RegisterPeer()
-	
 	public void updatePeersList(List<MessageToClient> messages)
 	{
 		try
@@ -135,8 +133,7 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		if (index >= this.pieces.length) {
 			throw new IllegalArgumentException("Invalid piece index!");
 		}
-	
-		
+			
 		return this.pieces[index];
 	}
 	
@@ -177,6 +174,38 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		return this.torrentStorage.write(buffer, offset);
 	}
 	
+	synchronized
+	public void ProcessPeerBitfield(Peer peer, BitSet bitfield)
+	{
+		for(int i = 0; i < this.pieces.length; ++i)
+		{
+			Piece piece = this.pieces[i];
+			if(bitfield.get(i) && piece.getState() != Piece.States.DOWNLOADED)
+			{
+				piece.addPeer(peer);
+			}
+		}
+	}
+	
+	synchronized
+	public void ProcessPeerPieceAvailability(Peer peer, int index) throws Exception
+	{
+		if(index > pieces.length - 1)
+			throw new Exception("Invalid piece index received from peer [" + peer.GetPeerId() + "]");
+		
+		Piece piece = this.pieces[index];
+		if(piece.getState() != Piece.States.DOWNLOADED)
+		{
+			piece.addPeer(peer);
+		}		
+	}
+	
+	synchronized
+	public Piece GetNextPieceForPeer(Peer peer)
+	{
+		return this.pieceSelectionPolicy.GetNextPieceForPeer(peer);
+	}
+	
 	
 	private void InitializeTorrentFile(File destinationFile)
 	{
@@ -200,13 +229,14 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		int currentPieceOffset = 0;
 		
 		this.pieces = new Piece[descriptor.NumberOfPieces()];
-		//this.bitField = new int[descriptor.NumberOfPieces()];
 		for(int i = 0; i < descriptor.NumberOfPieces(); ++i)
 		{
 			int thisPieceLength = Math.min(pieceLength, (fileLength - currentPieceOffset));			
 			this.pieces[i] = new Piece(this, i, currentPieceOffset, thisPieceLength, hashes.get(i));
 			this.pieces[i].validate();
-			//this.bitField[i] = pieces[i].getState();
+			this.setPieceState(i, this.pieces[i].isValid() 
+									? Piece.States.DOWNLOADED
+									: Piece.States.UNAVAILABLE);
 			
 			currentPieceOffset += thisPieceLength;
 		}

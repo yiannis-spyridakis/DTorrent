@@ -10,6 +10,7 @@ import java.nio.*;
 import java.text.ParseException;
 
 import com.torr.policies.ProtocolPolicy;
+import com.torr.utils.TasksQueue;
 import com.torr.msgs.PeerMessage;
 
 
@@ -21,14 +22,15 @@ import com.torr.msgs.PeerMessage;
  * - Its public methods are thread-safe 
  *
  */
-public class Peer implements Runnable  {
+public class Peer extends TasksQueue implements Runnable  {
 	
 //	private byte[] currentBitfield = null;
 	private Socket peerSocket = null;
 	private TorrentFile torrentFile = null;
 	private ObjectInputStream inputStream = null;
 	private ObjectOutputStream outputStream = null;
-	private Thread backgroundThread = null;
+	private SenderThread senderThread = null;
+	private ReaderThread readerThread = null;
 	private LinkedBlockingQueue<PeerMessage> outQueue
 				= new LinkedBlockingQueue<PeerMessage>();
 	private LinkedBlockingQueue<PeerMessage.RequestMessage> pieceRequests 
@@ -57,12 +59,11 @@ public class Peer implements Runnable  {
 		this(peerSocket);		
 		this.torrentFile = torrentFile;
 		
-		// Create and start the background thread
-		backgroundThread = new Thread(this);
-		backgroundThread.start();
-			
-		SendHandshake();
+		this.outputStream = new ObjectOutputStream(peerSocket.getOutputStream());		
+		SendHandshake();		
 		SendBitfield();
+		
+		FireBackgroundThreads();
 	}
 	
 	public Peer(IPeerRegistrar peerRegistrar, Socket peerSocket) throws Exception
@@ -98,12 +99,10 @@ public class Peer implements Runnable  {
 			return;
 		}
 		
-		// Create and start the background thread
-		backgroundThread = new Thread(this);
-		backgroundThread.start();	
-		
 		SendHandshake();
 		SendBitfield();
+
+		FireBackgroundThreads();		
 	}
 	private boolean InitializeStreams()
 	{
@@ -128,24 +127,35 @@ public class Peer implements Runnable  {
 	@Override
 	public void run()
 	{
-		if(!InitializeStreams())
-			return;
-		
-		while(!this.shutdownRequested)
-		{		
-			Boolean sentMessage = trySendNextMessage();
-			Boolean readMessage = tryReadNextMessage();			
+		try
+		{
+			if(!InitializeStreams())
+				return;
 			
-			// If no data was read/written during the last loop yield execution
-			if(!(readMessage || sentMessage))
-			{
-				Thread.yield();
+			while(!this.shutdownRequested)
+			{		
+				//Boolean sentMessage = trySendNextMessage();
+				Boolean readMessage = tryReadNextMessage();			
+				
+				// If no data was read/written during the last loop yield execution
+				if(!readMessage)// || sentMessage))
+				{
+					Thread.yield();
+				}
 			}
+		}
+		catch(Exception ex)
+		{
+			torrentFile.Log("Error in peer [" + GetPeerId() + "]");
+			shutDown();
 		}
 	}
 	
 	public void shutDown()
 	{
+		if(this.torrentFile != null)
+			this.torrentFile.Log("Closing connection with peer [" + this.GetPeerId() + "]");
+			
 		this.shutdownRequested = true;		
 	}
 	public boolean IsAlive()
@@ -197,6 +207,10 @@ public class Peer implements Runnable  {
 	{
 		return this.peerId;
 	}
+	public BitSet GetBitField()
+	{
+		return this.peerBitField;
+	}
 	
 	public void SendHave(final int pieceIndex)
 	{
@@ -224,46 +238,32 @@ public class Peer implements Runnable  {
 					this.torrentFile.getInfoHash(),
 					this.torrentFile.getPeerId()));
 	}
-	private PeerMessage.HandshakeMessage ReadHandshake()
+	private PeerMessage.HandshakeMessage ReadHandshake() throws Exception
 	{
 		return (PeerMessage.HandshakeMessage)readPeerMessage();			
 	}
 	
 	// Returns true if a message is read
-	private Boolean tryReadNextMessage()
+	private Boolean tryReadNextMessage() throws Exception
 	{		
 		Boolean messageRead = false;
 		
-		try
-		{	
-			handleMessage(readPeerMessage());
-			messageRead = true;
-		}
-		catch(Exception ex)
-		{
-			shutDown();
-		}	
+		handleMessage(readPeerMessage());
+		messageRead = true;
 		
 		return messageRead;
 	}
-	private Boolean trySendNextMessage()
+	private Boolean trySendNextMessage() throws Exception
 	{
 		Boolean messageSent = false;
 		
 		if(!outQueue.isEmpty())
 		{
-			try
-			{
-				PeerMessage outgoingMsg = outQueue.take();
-				sendPeerMessage(outgoingMsg);
-				OnMessageSent(outgoingMsg);
-				
-				messageSent = true;
-			}
-			catch(Exception ex)
-			{
-				shutDown();
-			}
+			PeerMessage outgoingMsg = outQueue.take();
+			sendPeerMessage(outgoingMsg);
+			OnMessageSent(outgoingMsg);
+			
+			messageSent = true;
 		}
 		
 		return messageSent;
@@ -277,21 +277,16 @@ public class Peer implements Runnable  {
 		this.outputStream.writeObject(msg);
 		this.outputStream.flush();
 	}
-	private PeerMessage readPeerMessage()
+	private PeerMessage readPeerMessage() throws Exception
 	{
-		try
-		{
-			return (PeerMessage)this.inputStream.readObject();
-		}
-		catch(Exception ex)
-		{
-			ex.printStackTrace();
-			return null;
-		}
+		return (PeerMessage)this.inputStream.readObject();
 	}
 	
-	private void handleMessage(PeerMessage msg)
+	private void handleMessage(PeerMessage msg) throws Exception
 	{
+		if(msg == null)
+			return;
+		
 		switch(msg.getType())
 		{
 		case KEEP_ALIVE:
@@ -340,8 +335,11 @@ public class Peer implements Runnable  {
 		this.peerInterested = interested;
 		// TODO: Notify TorrentFile
 	}
-	private void HandlePeerHave(PeerMessage.HaveMessage msg)
-	{		
+	private void HandlePeerHave(PeerMessage.HaveMessage msg) throws Exception
+	{
+		torrentFile.ProcessPeerPieceAvailability(this, msg.getPieceIndex());
+		
+		
 	}
 	private void HandlePeerBitfield(PeerMessage.BitfieldMessage msg)
 	{
@@ -369,7 +367,7 @@ public class Peer implements Runnable  {
 			OnChokeSent(true);
 			break;
 		case UNCHOKE:
-			OnChokeSent(true);;
+			OnChokeSent(false);
 			break;
 		case INTERESTED:
 			OnInterestedSent(true);
@@ -409,5 +407,74 @@ public class Peer implements Runnable  {
 	{		
 	}
 	
+	private class SenderThread implements Runnable
+	{
+		private Thread backgroundThread;
+		public SenderThread()
+		{
+			this.backgroundThread = new Thread(this);
+			this.backgroundThread.start();
+		}
+		
+		@Override
+		public void run()
+		{
+			try
+			{
+				if(!InitializeStreams())
+					return;
+				
+				while(!shutdownRequested)
+				{		
+					if(!trySendNextMessage())
+					{
+						Thread.yield();
+					}
+				}
+			}
+			catch(Exception ex)
+			{
+				torrentFile.Log("Error in peer [" + GetPeerId() + "]");
+				shutDown();
+			}
+		}
+	}
+	private class ReaderThread implements Runnable
+	{
+		private Thread backgroundThread;
+		public ReaderThread()
+		{
+			this.backgroundThread = new Thread(this);
+			this.backgroundThread.start();
+		}
+		
+		@Override
+		public void run()
+		{
+			try
+			{
+				if(!InitializeStreams())
+					return;
+				
+				while(!shutdownRequested)
+				{		
+					if(!tryReadNextMessage())
+					{
+						Thread.yield();
+					}
+				}
+			}
+			catch(Exception ex)
+			{
+				torrentFile.Log("Error in peer [" + GetPeerId() + "]");
+				shutDown();
+			}
+		}
+	}	
 	
+	private void FireBackgroundThreads()
+	{
+		this.readerThread = new ReaderThread();
+		this.senderThread = new SenderThread();
+	}
 }

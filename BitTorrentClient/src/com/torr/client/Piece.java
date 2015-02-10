@@ -1,13 +1,10 @@
 package com.torr.client;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
-import com.torr.trackermsgs.MessageToClient;
 import com.torr.utils.HashingUtils;
 
 
@@ -44,10 +41,15 @@ public class Piece {
 	
 	public void setTorrentFile(TorrentFile torrentFile)
 	{
-		this.torrentFile = torrentFile;
+		this.torrentFile = torrentFile;		
 	}
 	public void setState(States state) {
 		this.state = state;
+		if(state == States.DOWNLOADED)
+		{
+			seedingPeers.clear();
+		}
+			
 	}
 	public States getState() {
 		return state;
@@ -72,12 +74,24 @@ public class Piece {
 	{
 		return this.hash;
 	}
-	
-	public void addPeer(String peerId ,Peer peer) {
-		this.seedingPeers.put(peerId, peer);
+	// Number of peers in swarm that have the piece
+	public int GetSeedingPeersCount()
+	{
+		return seedingPeers.size();
 	}
-	public void deletePeer(String peerId) {
-		this.seedingPeers.remove(peerId);
+	
+	public void addPeer(Peer peer) 
+	{
+		this.seedingPeers.put(peer.GetPeerId(), peer);
+		state = States.AVAILABLE;
+	}
+	public void deletePeer(Peer peer) 
+	{
+		this.seedingPeers.remove(peer.GetPeerId());
+		if(this.seedingPeers.isEmpty() && this.state != States.DOWNLOADED)
+		{
+			state = States.UNAVAILABLE;
+		}
 	}
 	
 	public ByteBuffer read() throws Exception
@@ -120,11 +134,15 @@ public class Piece {
 		
 		if(this.length == nextOffset)
 		{
-			this.dataBuffer.rewind();
-			this.torrentFile.write(this.dataBuffer, this.offset);
-			this.dataBuffer = null;
+			writeToFile();
 		}
 		
+	}
+	private void writeToFile() throws IOException
+	{
+		this.dataBuffer.rewind();
+		this.torrentFile.write(this.dataBuffer, this.offset);
+		this.dataBuffer = null;		
 	}
 	
 	
