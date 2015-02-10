@@ -82,6 +82,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	{
 		Log(message);
 		Log(ex.getMessage());
+		ex.printStackTrace();
 	}
 	
 	

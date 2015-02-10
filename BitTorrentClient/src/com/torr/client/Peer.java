@@ -60,8 +60,11 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		this(peerSocket);		
 		this.torrentFile = torrentFile;
 		
-		this.outputStream = new ObjectOutputStream(peerSocket.getOutputStream());		
-		SendHandshake();		
+		this.outputStream = new ObjectOutputStream(peerSocket.getOutputStream());	
+		
+		Log("Sending handshake to peer");	
+		SendHandshake();	
+		Log("Sending bitfield to peer");
 		SendBitfield();
 		
 		FireBackgroundThreads();
@@ -74,6 +77,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		// If torrentFile != null => the peer has been added to the torrentFiles peers collection
 		InitializeStreams();
 		PeerMessage.HandshakeMessage inMsg = ReadHandshake();
+		System.out.println("Received handshake from remote peer");
 		
 		boolean shut_down = false;
 		if(inMsg != null)
@@ -100,11 +104,17 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 			return;
 		}
 		
+		Log("Sending handshake to peer [" + inMsg.getPeerId() + 
+				"] for file ["  + inMsg.getInfoHash() + "]");
 		SendHandshake();
+		Log("Sending bitfield to peer [" + inMsg.getPeerId() + 
+				"] for file ["  + inMsg.getInfoHash() + "]");		
 		SendBitfield();
 
 		FireBackgroundThreads();		
 	}
+	
+	synchronized
 	private boolean InitializeStreams()
 	{
 		if(this.peerSocket == null)
@@ -133,7 +143,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 //		{
 //			// Decide on next piece
 //		}
-		if(torrentFile != null)
+		if(torrentFile == null)
 		{
 			Log("Invalid peer state. Aborting...");
 			shutDown();
@@ -310,6 +320,8 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		if(msg == null)
 			return;
 		
+		
+		Log("Received [" + msg.getType().name() + "] message");
 		switch(msg.getType())
 		{
 		case KEEP_ALIVE:
@@ -364,6 +376,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	}
 	private void HandlePeerBitfield(PeerMessage.BitfieldMessage msg)
 	{
+		Log("Received bitfield from remote peer");
 		this.peerBitField = msg.getBitfield();
 	}
 	private void HandlePeerRequest(PeerMessage.RequestMessage msg)
@@ -376,6 +389,9 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	}
 	private void HandleHandshakeMessage(PeerMessage.HandshakeMessage msg)
 	{	
+		Log("Received handshake from peer [" + msg.getPeerId() + "]"
+				+ " for file [" + msg.getInfoHash() + "]");
+		
 		if(!msg.getInfoHash().equals(this.torrentFile.getInfoHash()))
 		{
 			shutDown();
@@ -469,7 +485,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 			}
 			catch(Exception ex)
 			{
-				Log("Error in peer [" + GetPeerId() + "]:", ex);
+				Log("Error in peer upload [" + GetPeerId() + "]:", ex);
 				shutDown();
 			}
 		}
@@ -504,7 +520,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 			}
 			catch(Exception ex)
 			{
-				Log("Error in peer [" + GetPeerId() + "]:", ex);
+				Log("Error in peer download [" + GetPeerId() + "]:", ex);
 				shutDown();
 			}
 		}

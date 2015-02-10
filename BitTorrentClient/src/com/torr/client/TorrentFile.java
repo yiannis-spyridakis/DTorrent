@@ -32,7 +32,7 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	private TorrentFileDescriptor descriptor = null;
 	private File destinationFile = null;
 	private Thread backgroundThread = null;
-	private PieceSelectionPolicy pieceSelectionPolicy = new PieceSelectionPolicy(pieces);
+	private PieceSelectionPolicy pieceSelectionPolicy;
 	private volatile boolean shutdownRequested = false;
 	
 	public TorrentFile(
@@ -57,9 +57,12 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	}
 	
 	@Override
-	public void run() {		
+	public void run() {
+		
 		Log("Validating target file...");
 		InitializeTorrentFile(this.destinationFile);
+		
+		this.pieceSelectionPolicy =  new PieceSelectionPolicy(pieces);
 		
 		trackerClient = new TrackerClient(this, this.torrentMain.GetTCPServerPortNumber());
 		

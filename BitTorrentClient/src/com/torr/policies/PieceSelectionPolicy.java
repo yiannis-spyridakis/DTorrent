@@ -41,13 +41,13 @@ public class PieceSelectionPolicy
 			return null;
 				
 		int[] peerAvailableIndices = GetBitfieldSetIndices(peerBitfield);
-		if(peerAvailableIndices.length == 0)
+		if(peerAvailableIndices == null || peerAvailableIndices.length == 0)
 			return null;
 		
 		int piece_index = 0;
 		
 		int downloadedPiecesCount = GetDownloadedPiecesCount();
-		if(downloadedPiecesCount > ProtocolPolicy.RANDOM_PIECE_SELECTION_THRESHOLD)
+		if(downloadedPiecesCount <= ProtocolPolicy.RANDOM_PIECE_SELECTION_THRESHOLD)
 		{
 			// Randomly select among the available pieces
 			piece_index = peerAvailableIndices[new Random().nextInt(peerAvailableIndices.length)];			
