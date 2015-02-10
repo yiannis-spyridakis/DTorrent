@@ -48,6 +48,7 @@ public class TorrentFileStorage implements AutoCloseable {
 	
 	public int write(ByteBuffer buffer, long offset) throws IOException
 	{
+		buffer.rewind();
 		return this.channel.write(buffer, offset);
 	}
 	

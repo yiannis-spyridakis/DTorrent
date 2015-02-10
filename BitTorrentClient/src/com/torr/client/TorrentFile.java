@@ -43,17 +43,26 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	{
 		this.torrentMain = torrentMain;
 		this.descriptor = descriptor;
+		Log("TorrentFile(): Initialized this.torrentMain, this.descriptor");
+		
 		
 		this.destinationFile = 
 				destinationDir.toPath().resolve(descriptor.FileName()).toFile();		
+		
+		Log("TorrentFile(): Initialized this.destinationFile");
 		
 		
 //		Log("Validating target file...");
 //		InitializeTorrentFile(this.destinationFile);		
 //		trackerClient = new TrackerClient(this, this.torrentMain.GetTCPServerPortNumber());
 		
+		Log("TorrentFile(): Before creating the background thread");
 		this.backgroundThread = new Thread(this);
-		this.backgroundThread.run();
+		Log("TorrentFile(): Before running background thread");
+		this.backgroundThread.start();
+		
+		
+		
 	}
 	
 	@Override
@@ -66,19 +75,19 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		
 		trackerClient = new TrackerClient(this, this.torrentMain.GetTCPServerPortNumber());
 		
-//		while(!shutdownRequested)
-//		{
-//			try
-//			{
-//				this.processOutstandingTasks();
-//				Thread.yield();
-//			}
-//			catch(Exception ex)
-//			{
-//				Log("An error occured:", ex);
-//			}
-//			
-//		}
+		while(!shutdownRequested)
+		{
+			try
+			{
+				this.processOutstandingTasks();
+				Thread.yield();
+			}
+			catch(Exception ex)
+			{
+				Log("An error occured:", ex);
+			}
+			
+		}
 		
 	}
 	@Override
@@ -209,11 +218,11 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	
 	public void NotifyForDownloadedPiece(final Piece piece)
 	{
-//		this.addTask(new FutureTask<Void>(new Callable<Void>()
-//		{							
-//			@Override
-//			public Void call()// throws Exception
-//			{
+		this.addTask(new FutureTask<Void>(new Callable<Void>()
+		{							
+			@Override
+			public Void call()// throws Exception
+			{
 				try
 				{
 					// write data to disk
@@ -231,20 +240,20 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 					Log("Failed to write piece #" + piece.getOffset() + " to disk:", ex);
 				}
 				
-//				return null;
-//			}
-//		}));		
+				return null;
+			}
+		}));		
 	}
 	
 	public void ProcessPeerBitfield(final Peer peer, final BitSet bitfield)
 	{
 		final Piece[] local_pieces = this.pieces;
 		
-//		this.addTask(new FutureTask<Void>(new Callable<Void>()
-//		{							
-//			@Override
-//			public Void call()// throws Exception
-//			{
+		this.addTask(new FutureTask<Void>(new Callable<Void>()
+		{							
+			@Override
+			public Void call()// throws Exception
+			{
 				for(int i = 0; i < local_pieces.length; ++i)
 				{
 					Piece piece = local_pieces[i];
@@ -254,9 +263,9 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 					}
 				}
 				
-//				return null;
-//			}
-//		}));
+				return null;
+			}
+		}));
 	}
 	
 	public void ProcessPeerPieceAvailability(final Peer peer, final int index) throws Exception
@@ -266,19 +275,19 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	
 		final Piece piece = this.pieces[index];
 		
-//		this.addTask(new FutureTask<Void>(new Callable<Void>()
-//		{							
-//			@Override
-//			public Void call()// throws Exception
-//			{				
+		this.addTask(new FutureTask<Void>(new Callable<Void>()
+		{							
+			@Override
+			public Void call()// throws Exception
+			{				
 				if(piece.getState() != Piece.States.DOWNLOADED)
 				{
 					piece.addPeer(peer);
 				}
 				
-//				return null;
-//			}
-//		}));				
+				return null;
+			}
+		}));				
 	}
 	
 	//synchronized

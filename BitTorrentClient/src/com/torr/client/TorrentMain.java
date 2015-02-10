@@ -135,12 +135,19 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 					TorrentFile torrentFile = torrentFiles.get(info_hash);
 					if(torrentFile != null)
 					{
+						Log("Torrent file already initialized in memory");
 						torrentFile.InitializeTorrentFileUI();
 					}
 					else
 					{
+						Log("Creating new torrent file object");
 						torrentFile = new TorrentFile(pThis, descriptor, torrentFolder);
+						Log("Putting new torrent file object in collection");
 						torrentFiles.put(info_hash, torrentFile);
+						
+						
+						Log("torrentfiles object count = [" + torrentFiles.size() + "]");
+						
 					}		
 					
 					Log("Successfully opened torrent file [" + torrentFile.getInfoHash() + "]");				

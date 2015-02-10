@@ -6,14 +6,16 @@ import java.util.Arrays;
 import java.util.HashMap;
 
 import com.torr.msgs.PeerMessage;
+import com.torr.policies.ProtocolPolicy;
 import com.torr.utils.HashingUtils;
 
 
 public class Piece {
 	
-	private int index;
-	private int offset;
-	private int length;
+	private int index = 0;
+	private int offset = 0;
+	private int length = 0;
+	private int next_block_offset = 0; // for download requests
 	
 	private ByteBuffer dataBuffer;
 	private TorrentFile torrentFile;
@@ -80,6 +82,30 @@ public class Piece {
 		return this.dataBuffer;
 	}
 	
+	public PeerMessage.RequestMessage GetNextBlockRequest()
+	{
+		// Return null if we've requested all blocks
+		if(next_block_offset >= this.length)
+			return null;
+		
+		final int length = 
+				Math.min(ProtocolPolicy.BLOCK_SIZE, this.length - this.next_block_offset);
+		
+		PeerMessage.RequestMessage ret = 
+				new PeerMessage.RequestMessage(this.index, next_block_offset, length);
+		
+		next_block_offset += length;
+		
+		return ret;
+	}
+	public int GetNextBlockOffset()
+	{
+		return this.next_block_offset;
+	}
+	public void SetNextBlockOffset(final int offset)
+	{
+		this.next_block_offset = offset;
+	}
 	
 	// Number of peers in swarm that have the piece
 	public int GetSeedingPeersCount()
@@ -149,15 +175,17 @@ public class Piece {
 		
 		ensureDataBufferInitialized();
 		
-		int blockPos = block.position();
+		//int blockPos = block.position();
+		block.rewind();
 		this.dataBuffer.position(offset);
 		this.dataBuffer.put(block);
-		block.position(blockPos);
+		block.rewind();
+		//block.position(blockPos);
 		
 		// Check for completion
 		int nextOffset = offset + block.remaining();
 		
-		if(this.length == nextOffset)
+		if(nextOffset >= this.length)
 		{
 			this.torrentFile.NotifyForDownloadedPiece(this);
 		}

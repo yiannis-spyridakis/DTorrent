@@ -34,8 +34,8 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 //	private LinkedBlockingQueue<PeerMessage.RequestMessage> downPieceRequests 
 //	= new LinkedBlockingQueue<PeerMessage.RequestMessage>();
 	
-	private String peerId = null;
 	private BitSet peerBitField = null;
+	private String peerId = null;
 	
 	// Volatiles
 	public volatile boolean clientInterested = false;
@@ -91,15 +91,18 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 			}
 			else
 			{
+				System.out.println("torrentFile == null");
 				shut_down = true;
 			}
 		}
 		else
 		{
+			System.out.println("inMsg == null");
 			shut_down = true;
 		}
 		if(shut_down)
 		{
+			System.out.println("Shutting down peer");
 			shutDown();
 			return;
 		}
@@ -136,24 +139,25 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	}
 	
 	@Override
+	synchronized
 	public void run()
 	{
-//		// Progressive pipelining
-//		if(this.downPieceRequests.size() < ProtocolPolicy.MAX_OUTSTANDING_REQUESTS)
-//		{
-//			// Decide on next piece
-//		}
 		if(torrentFile == null)
 		{
 			Log("Invalid peer state. Aborting...");
 			shutDown();
 		}
-		
-		
+				
 		// Go for a new piece if we're available
 		if(downPiece == null)
 		{
+			//Log("Selecting new piece for download");			
 			downPiece = this.torrentFile.GetNextPieceForPeer(this);
+			if(downPiece == null)
+			{
+				//Log("No new piece found");
+			}
+			
 		}
 		
 	}
@@ -298,6 +302,21 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		}		
 		
 		return served;
+	}
+	private boolean RequestNextBlock()
+	{
+		if(this.downPiece == null)
+			return false;
+				
+		PeerMessage.RequestMessage request = this.downPiece.GetNextBlockRequest();
+		if(request == null)
+		{
+			return false;
+		}
+		
+		this.queueOutgoingMessage(request);
+		return true;
+		
 	}
 	
 	
@@ -512,7 +531,10 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 					// Peer actions
 					Peer.this.run();
 					
-					if(!tryReadNextMessage())
+					boolean pipelined_request = RequestNextBlock();
+					boolean sent_message = tryReadNextMessage();
+					
+					if(!(pipelined_request || sent_message))
 					{
 						Thread.yield();
 					}
