@@ -224,15 +224,16 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	synchronized
 	public void NotifyForDownloadedPiece(final Piece piece)
 	{		
-//		this.addTask(new FutureTask<Void>(new Callable<Void>()
-//		{							
-//			@Override
-//			public Void call()// throws Exception
-//			{
+		this.addTask(new FutureTask<Void>(new Callable<Void>()
+		{							
+			@Override
+			synchronized public Void call()// throws Exception
+			{
 				try
 				{
 					// Notify peer for download completion
-					piece.GetDownloadingPeer().NotifyForDownloadedPiece(piece);
+					Peer downloadingPeer = piece.GetDownloadingPeer();
+					downloadingPeer.NotifyForDownloadedPiece(piece);
 					
 					// write data to disk
 					write(piece.GetBuffer(), piece.getOffset());
@@ -251,10 +252,10 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 				{
 					Log("Failed to write piece #" + piece.getOffset() + " to disk:", ex);
 				}
-//				
-//				return null;
-//			}
-//		}));		
+				
+				return null;
+			}
+		}));		
 	}
 	
 	public void ProcessPeerBitfield(final Peer peer, final BitSet bitfield)

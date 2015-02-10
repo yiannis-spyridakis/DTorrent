@@ -306,17 +306,17 @@ public class TorrentUI extends Application implements ITorrentUI {
 		title.setFont(titlesFont);
 		titleBox.getChildren().add(title);
 		
-		Button downloadButton = new Button("Begin Download");
-		HBox downloadButtonBox = new HBox();
-		downloadButtonBox.setPadding(new Insets(0, 10, 0, 0));
-		downloadButtonBox.setAlignment(Pos.CENTER_RIGHT);
-		downloadButtonBox.getChildren().add(downloadButton);
-		// Add handlers to the buttons
-		downloadButton.setOnAction(new EventHandler<ActionEvent>() {
-			public void handle(ActionEvent ae) {
-				beginDownload();
-			}
-		});
+//		Button downloadButton = new Button("Begin Download");
+//		HBox downloadButtonBox = new HBox();
+//		downloadButtonBox.setPadding(new Insets(0, 10, 0, 0));
+//		downloadButtonBox.setAlignment(Pos.CENTER_RIGHT);
+//		downloadButtonBox.getChildren().add(downloadButton);
+//		// Add handlers to the buttons
+//		downloadButton.setOnAction(new EventHandler<ActionEvent>() {
+//			public void handle(ActionEvent ae) {
+//				beginDownload();
+//			}
+//		});
 		
 		HBox detailsConsoleTitleBox = new HBox();
 		detailsConsoleTitleBox.setAlignment(Pos.CENTER);
@@ -352,7 +352,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 		detailsBox.getChildren().addAll(
 				titleBox, 
 				createDetailsPane(), 
-				downloadButtonBox,
+				//downloadButtonBox,
 				detailsConsoleTitleBox,
 				consoleWrapper);		
 		

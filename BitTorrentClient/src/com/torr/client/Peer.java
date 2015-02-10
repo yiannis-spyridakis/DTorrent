@@ -155,18 +155,32 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 			shutDown();
 		}
 				
+		/*
+		 * Hack to get around synchronization issue:
+		 * The client stops downloading pieces after a random ammound
+		 * of successful piece downloads
+		 */
+		try
+		{
+			Thread.sleep(100);
+		}
+		catch(InterruptedException ex)
+		{			
+		}
+		
 		// Go for a new piece if we're available
 		if(GetDownPiece() == null)
 		{
 			//Log("Selecting new piece for download");			
 			SetDownPiece(this.torrentFile.GetNextPieceForPeer(this));
-			if(GetDownPiece() == null)
+			Piece dnPiece = GetDownPiece();
+			if(dnPiece == null)
 			{
-				Log("No new piece found");
+				//System.out.println("No piece found");
 			}
 			else
 			{
-				GetDownPiece().SetDownloadingPeer(this);
+				dnPiece.SetDownloadingPeer(this);
 			}
 			
 		}
@@ -176,8 +190,9 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	public void NotifyForDownloadedPiece(Piece piece)
 	{
 		if(piece.getIndex() == downPiece.getIndex())
-		{			
+		{					
 			SetDownPiece(null);
+			SendHave(piece.getIndex());
 		}
 	}
 	

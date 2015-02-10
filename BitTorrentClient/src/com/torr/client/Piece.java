@@ -21,7 +21,7 @@ public class Piece {
 	private TorrentFile torrentFile;
 	
 	private byte[] hash;
-	private boolean valid;
+	private volatile boolean valid;
 	public enum States {UNAVAILABLE, AVAILABLE, DOWNLOADED };
 	private States state;
 	private HashMap<String, Peer> seedingPeers = new HashMap<String, Peer>();
