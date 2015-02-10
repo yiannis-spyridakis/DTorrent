@@ -36,7 +36,11 @@ public class PieceSelectionPolicy
 	}
 	public Piece GetNextPieceForPeer(Peer peer)
 	{
-		int[] peerAvailableIndices = GetBitfieldSetIndices(peer.GetBitField());
+		BitSet peerBitfield = peer.GetBitField();
+		if(peerBitfield == null)
+			return null;
+				
+		int[] peerAvailableIndices = GetBitfieldSetIndices(peerBitfield);
 		if(peerAvailableIndices.length == 0)
 			return null;
 		

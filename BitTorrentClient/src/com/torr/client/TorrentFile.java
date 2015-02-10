@@ -4,16 +4,24 @@ import java.io.File;
 import java.io.IOException;
 import java.net.Inet4Address;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Vector;
 import java.util.HashMap;
+import java.util.concurrent.Callable;
+import java.util.concurrent.FutureTask;
 
 import com.torr.bencode.TorrentFileDescriptor;
 import com.torr.policies.PieceSelectionPolicy;
 import com.torr.trackermsgs.MessageToClient;
+import com.torr.utils.SystemUtils;
+import com.torr.utils.TasksQueue;
 
-public class TorrentFile implements Runnable, AutoCloseable {
+public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	
 	
 	private TorrentMain torrentMain = null;
@@ -25,6 +33,7 @@ public class TorrentFile implements Runnable, AutoCloseable {
 	private File destinationFile = null;
 	private Thread backgroundThread = null;
 	private PieceSelectionPolicy pieceSelectionPolicy = new PieceSelectionPolicy(pieces);
+	private volatile boolean shutdownRequested = false;
 	
 	public TorrentFile(
 			TorrentMain torrentMain,
@@ -38,6 +47,11 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		this.destinationFile = 
 				destinationDir.toPath().resolve(descriptor.FileName()).toFile();		
 		
+		
+//		Log("Validating target file...");
+//		InitializeTorrentFile(this.destinationFile);		
+//		trackerClient = new TrackerClient(this, this.torrentMain.GetTCPServerPortNumber());
+		
 		this.backgroundThread = new Thread(this);
 		this.backgroundThread.run();
 	}
@@ -48,6 +62,21 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		InitializeTorrentFile(this.destinationFile);
 		
 		trackerClient = new TrackerClient(this, this.torrentMain.GetTCPServerPortNumber());
+		
+//		while(!shutdownRequested)
+//		{
+//			try
+//			{
+//				this.processOutstandingTasks();
+//				Thread.yield();
+//			}
+//			catch(Exception ex)
+//			{
+//				Log("An error occured:", ex);
+//			}
+//			
+//		}
+		
 	}
 	@Override
 	public void close()
@@ -104,7 +133,8 @@ public class TorrentFile implements Runnable, AutoCloseable {
 				try
 				{
 					String peerIP = msg.getIP().getHostAddress() + ":" + msg.getPort();
-					if(!peerIP.equals(localIP) && 
+					if(!this.torrentMain.GetPeerId().equals(msg.peer_id) && 
+					   !peerIP.equals(localIP) && 
 					   !this.peers.containsKey(msg.peer_id))
 					{
 						this.peers.put(
@@ -174,33 +204,81 @@ public class TorrentFile implements Runnable, AutoCloseable {
 		return this.torrentStorage.write(buffer, offset);
 	}
 	
-	synchronized
-	public void ProcessPeerBitfield(Peer peer, BitSet bitfield)
+	public void NotifyForDownloadedPiece(final Piece piece)
 	{
-		for(int i = 0; i < this.pieces.length; ++i)
-		{
-			Piece piece = this.pieces[i];
-			if(bitfield.get(i) && piece.getState() != Piece.States.DOWNLOADED)
-			{
-				piece.addPeer(peer);
-			}
-		}
+//		this.addTask(new FutureTask<Void>(new Callable<Void>()
+//		{							
+//			@Override
+//			public Void call()// throws Exception
+//			{
+				try
+				{
+					// write data to disk
+					write(piece.GetBuffer(), piece.getOffset());
+					if(piece.validate())
+					{
+						Log("Successfully downloaded piece #" + piece.getIndex());
+						// TODO: update UI!
+					}
+					
+					
+				}
+				catch(Exception ex)
+				{
+					Log("Failed to write piece #" + piece.getOffset() + " to disk:", ex);
+				}
+				
+//				return null;
+//			}
+//		}));		
 	}
 	
-	synchronized
-	public void ProcessPeerPieceAvailability(Peer peer, int index) throws Exception
+	public void ProcessPeerBitfield(final Peer peer, final BitSet bitfield)
 	{
+		final Piece[] local_pieces = this.pieces;
+		
+//		this.addTask(new FutureTask<Void>(new Callable<Void>()
+//		{							
+//			@Override
+//			public Void call()// throws Exception
+//			{
+				for(int i = 0; i < local_pieces.length; ++i)
+				{
+					Piece piece = local_pieces[i];
+					if(bitfield.get(i) && piece.getState() != Piece.States.DOWNLOADED)
+					{
+						piece.addPeer(peer);
+					}
+				}
+				
+//				return null;
+//			}
+//		}));
+	}
+	
+	public void ProcessPeerPieceAvailability(final Peer peer, final int index) throws Exception
+	{		
 		if(index > pieces.length - 1)
 			throw new Exception("Invalid piece index received from peer [" + peer.GetPeerId() + "]");
+	
+		final Piece piece = this.pieces[index];
 		
-		Piece piece = this.pieces[index];
-		if(piece.getState() != Piece.States.DOWNLOADED)
-		{
-			piece.addPeer(peer);
-		}		
+//		this.addTask(new FutureTask<Void>(new Callable<Void>()
+//		{							
+//			@Override
+//			public Void call()// throws Exception
+//			{				
+				if(piece.getState() != Piece.States.DOWNLOADED)
+				{
+					piece.addPeer(peer);
+				}
+				
+//				return null;
+//			}
+//		}));				
 	}
 	
-	synchronized
+	//synchronized
 	public Piece GetNextPieceForPeer(Peer peer)
 	{
 		return this.pieceSelectionPolicy.GetNextPieceForPeer(peer);
@@ -214,10 +292,12 @@ public class TorrentFile implements Runnable, AutoCloseable {
 			this.torrentStorage = new TorrentFileStorage(destinationFile, descriptor.FileLength());
 			InitializePieces();
 			InitializeTorrentFileUI();
+			
+			Log("Successfully initialized torrent");
 		}
 		catch(Exception ex)
 		{
-			Log("Unable to initialize torrent file", ex);
+			Log("Unable to initialize torrent", ex);
 		}
 	}
 	

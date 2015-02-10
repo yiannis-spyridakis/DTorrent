@@ -5,6 +5,7 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.HashMap;
 
+import com.torr.msgs.PeerMessage;
 import com.torr.utils.HashingUtils;
 
 
@@ -74,12 +75,19 @@ public class Piece {
 	{
 		return this.hash;
 	}
+	public final ByteBuffer GetBuffer()
+	{
+		return this.dataBuffer;
+	}
+	
+	
 	// Number of peers in swarm that have the piece
 	public int GetSeedingPeersCount()
 	{
 		return seedingPeers.size();
 	}
 	
+	synchronized
 	public void addPeer(Peer peer) 
 	{
 		this.seedingPeers.put(peer.GetPeerId(), peer);
@@ -117,6 +125,23 @@ public class Piece {
 		return ret;		
 	}
 	
+	public ByteBuffer read(long offset, long length) throws IOException {
+		
+		if (offset + length > this.length) 
+		{
+			throw new IllegalArgumentException("Invalid data request for Piece #" + this.index + 
+					" @ offset=[" + offset + "] length=[" + length + "]");
+		}
+
+		ByteBuffer ret = ByteBuffer.allocate((int)length);
+		int bytes = this.torrentFile.read(ret, this.offset + offset);
+		
+		ret.rewind();
+		ret.limit(bytes >= 0 ? bytes : 0);
+		
+		return ret;
+	}
+	
 	public void write(ByteBuffer block, int offset) throws Exception
 	{
 		if(this.torrentFile == null)
@@ -134,24 +159,21 @@ public class Piece {
 		
 		if(this.length == nextOffset)
 		{
-			writeToFile();
+			this.torrentFile.NotifyForDownloadedPiece(this);
 		}
 		
 	}
-	private void writeToFile() throws IOException
-	{
-		this.dataBuffer.rewind();
-		this.torrentFile.write(this.dataBuffer, this.offset);
-		this.dataBuffer = null;		
-	}
-	
 	
 	public boolean validate()
 	{
 		try
 		{
 			this.valid = validateDirect(this.readDirect());
-			this.state = States.AVAILABLE;
+			if(this.valid)
+			{
+				this.state = States.DOWNLOADED;
+				this.seedingPeers.clear();
+			}
 		}
 		catch(Exception ex)
 		{

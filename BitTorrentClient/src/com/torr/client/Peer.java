@@ -2,16 +2,13 @@ package com.torr.client;
 
 import java.io.*;
 import java.net.*;
-import java.util.ArrayList;
+import java.nio.ByteBuffer;
 import java.util.BitSet;
-import java.util.Queue;
 import java.util.concurrent.*;
-import java.nio.*;
-import java.text.ParseException;
 
-import com.torr.policies.ProtocolPolicy;
-import com.torr.utils.TasksQueue;
+//import com.torr.utils.TasksQueue;
 import com.torr.msgs.PeerMessage;
+//import com.torr.policies.ProtocolPolicy;
 
 
 /**
@@ -22,9 +19,8 @@ import com.torr.msgs.PeerMessage;
  * - Its public methods are thread-safe 
  *
  */
-public class Peer extends TasksQueue implements Runnable  {
+public class Peer /*extends TasksQueue*/ implements Runnable  {
 	
-//	private byte[] currentBitfield = null;
 	private Socket peerSocket = null;
 	private TorrentFile torrentFile = null;
 	private ObjectInputStream inputStream = null;
@@ -33,8 +29,11 @@ public class Peer extends TasksQueue implements Runnable  {
 	private ReaderThread readerThread = null;
 	private LinkedBlockingQueue<PeerMessage> outQueue
 				= new LinkedBlockingQueue<PeerMessage>();
-	private LinkedBlockingQueue<PeerMessage.RequestMessage> pieceRequests 
+	private LinkedBlockingQueue<PeerMessage.RequestMessage> upPieceRequests 
 				= new LinkedBlockingQueue<PeerMessage.RequestMessage>();
+//	private LinkedBlockingQueue<PeerMessage.RequestMessage> downPieceRequests 
+//	= new LinkedBlockingQueue<PeerMessage.RequestMessage>();
+	
 	private String peerId = null;
 	private BitSet peerBitField = null;
 	
@@ -45,6 +44,8 @@ public class Peer extends TasksQueue implements Runnable  {
 	public volatile boolean peerChoking = true;
 	private volatile boolean shutdownRequested = false;
 	
+	private Piece upPiece = null;
+	private Piece downPiece = null;
 	
 	private Peer(Socket peerSocket)
 	{
@@ -81,7 +82,7 @@ public class Peer extends TasksQueue implements Runnable  {
 			this.torrentFile = peerRegistrar.RegisterPeer(this, inMsg);
 			if(this.torrentFile != null)
 			{
-				torrentFile.Log("Established connection with Peer [" + this.GetPeerId() + 
+				Log("Established connection with Peer [" + this.GetPeerId() + 
 						"] for file [" + inMsg.getInfoHash() + "]");
 			}
 			else
@@ -127,34 +128,31 @@ public class Peer extends TasksQueue implements Runnable  {
 	@Override
 	public void run()
 	{
-		try
+//		// Progressive pipelining
+//		if(this.downPieceRequests.size() < ProtocolPolicy.MAX_OUTSTANDING_REQUESTS)
+//		{
+//			// Decide on next piece
+//		}
+		if(torrentFile != null)
 		{
-			if(!InitializeStreams())
-				return;
-			
-			while(!this.shutdownRequested)
-			{		
-				//Boolean sentMessage = trySendNextMessage();
-				Boolean readMessage = tryReadNextMessage();			
-				
-				// If no data was read/written during the last loop yield execution
-				if(!readMessage)// || sentMessage))
-				{
-					Thread.yield();
-				}
-			}
-		}
-		catch(Exception ex)
-		{
-			torrentFile.Log("Error in peer [" + GetPeerId() + "]");
+			Log("Invalid peer state. Aborting...");
 			shutDown();
 		}
+		
+		
+		// Go for a new piece if we're available
+		if(downPiece == null)
+		{
+			downPiece = this.torrentFile.GetNextPieceForPeer(this);
+		}
+		
 	}
+	
 	
 	public void shutDown()
 	{
 		if(this.torrentFile != null)
-			this.torrentFile.Log("Closing connection with peer [" + this.GetPeerId() + "]");
+			Log("Closing connection with peer [" + this.GetPeerId() + "]");
 			
 		this.shutdownRequested = true;		
 	}
@@ -230,6 +228,11 @@ public class Peer extends TasksQueue implements Runnable  {
 		queueOutgoingMessage(
 				new PeerMessage.CancelMessage(piece, offset, length));
 	}
+	private void SendData(ByteBuffer data, int piece, int offset)
+	{
+		queueOutgoingMessage(
+				new PeerMessage.PieceMessage(piece, offset, data));
+	}
 	
 	private void SendHandshake() throws Exception
 	{
@@ -244,7 +247,7 @@ public class Peer extends TasksQueue implements Runnable  {
 	}
 	
 	// Returns true if a message is read
-	private Boolean tryReadNextMessage() throws Exception
+	private boolean tryReadNextMessage() throws Exception
 	{		
 		Boolean messageRead = false;
 		
@@ -253,9 +256,9 @@ public class Peer extends TasksQueue implements Runnable  {
 		
 		return messageRead;
 	}
-	private Boolean trySendNextMessage() throws Exception
+	private boolean trySendNextMessage() throws Exception
 	{
-		Boolean messageSent = false;
+		boolean messageSent = false;
 		
 		if(!outQueue.isEmpty())
 		{
@@ -268,6 +271,26 @@ public class Peer extends TasksQueue implements Runnable  {
 		
 		return messageSent;
 	}
+	private boolean ServeBlockRequests() throws IOException
+	{
+		boolean served = false;
+		
+		if(!this.upPieceRequests.isEmpty())
+		{
+			PeerMessage.RequestMessage msg = this.upPieceRequests.remove();
+			
+			Piece requestPiece = this.torrentFile.getPiece(msg.getPiece());
+			
+			ByteBuffer data = requestPiece.read(msg.getOffset(), msg.getLength());
+			this.SendData(data, msg.getPiece(), msg.getOffset());
+			
+			Log("Sent data of block #" + msg.getOffset() + " of piece #" + msg.getPiece());
+		}		
+		
+		return served;
+	}
+	
+	
 	private void queueOutgoingMessage(PeerMessage msg)
 	{
 		outQueue.add(msg);
@@ -337,9 +360,7 @@ public class Peer extends TasksQueue implements Runnable  {
 	}
 	private void HandlePeerHave(PeerMessage.HaveMessage msg) throws Exception
 	{
-		torrentFile.ProcessPeerPieceAvailability(this, msg.getPieceIndex());
-		
-		
+		torrentFile.ProcessPeerPieceAvailability(this, msg.getPieceIndex());		
 	}
 	private void HandlePeerBitfield(PeerMessage.BitfieldMessage msg)
 	{
@@ -347,13 +368,22 @@ public class Peer extends TasksQueue implements Runnable  {
 	}
 	private void HandlePeerRequest(PeerMessage.RequestMessage msg)
 	{
-		pieceRequests.add(msg);
+		upPieceRequests.add(msg);
 	}
-	private void HandlePieceMessage(PeerMessage.PieceMessage msg)
+	private void HandlePieceMessage(PeerMessage.PieceMessage msg) throws Exception
 	{
+		this.downPiece.write(msg.getBlock(), msg.getOffset());
 	}
 	private void HandleHandshakeMessage(PeerMessage.HandshakeMessage msg)
-	{		
+	{	
+		if(!msg.getInfoHash().equals(this.torrentFile.getInfoHash()))
+		{
+			shutDown();
+		}
+		this.peerId =  msg.getPeerId();
+		Log("Established connection with Peer [" + msg.getPeerId() + "]" + 
+			" for file [" + msg.getInfoHash() + "]");
+		
 	}
 	
 	private void OnMessageSent(PeerMessage msg)
@@ -401,7 +431,7 @@ public class Peer extends TasksQueue implements Runnable  {
 		this.clientInterested = interested;
 	}
 	private void OnRequestSent(PeerMessage.RequestMessage msg)
-	{
+	{		
 	}
 	private void OnPieceSent(PeerMessage.PieceMessage msg)
 	{		
@@ -425,8 +455,13 @@ public class Peer extends TasksQueue implements Runnable  {
 					return;
 				
 				while(!shutdownRequested)
-				{		
-					if(!trySendNextMessage())
+				{	
+					// Peer actions
+					Peer.this.run();
+					
+					boolean served_request = ServeBlockRequests();
+					boolean sent_message = trySendNextMessage();
+					if(!(served_request || sent_message))
 					{
 						Thread.yield();
 					}
@@ -434,7 +469,7 @@ public class Peer extends TasksQueue implements Runnable  {
 			}
 			catch(Exception ex)
 			{
-				torrentFile.Log("Error in peer [" + GetPeerId() + "]");
+				Log("Error in peer [" + GetPeerId() + "]:", ex);
 				shutDown();
 			}
 		}
@@ -457,7 +492,10 @@ public class Peer extends TasksQueue implements Runnable  {
 					return;
 				
 				while(!shutdownRequested)
-				{		
+				{	
+					// Peer actions
+					Peer.this.run();
+					
 					if(!tryReadNextMessage())
 					{
 						Thread.yield();
@@ -466,7 +504,7 @@ public class Peer extends TasksQueue implements Runnable  {
 			}
 			catch(Exception ex)
 			{
-				torrentFile.Log("Error in peer [" + GetPeerId() + "]");
+				Log("Error in peer [" + GetPeerId() + "]:", ex);
 				shutDown();
 			}
 		}
@@ -477,4 +515,13 @@ public class Peer extends TasksQueue implements Runnable  {
 		this.readerThread = new ReaderThread();
 		this.senderThread = new SenderThread();
 	}
+	
+	public void Log(String message)
+	{
+		this.torrentFile.Log(message);
+	}
+	public void Log(String message, Exception ex)
+	{
+		this.torrentFile.Log(message, ex);
+	}	
 }
