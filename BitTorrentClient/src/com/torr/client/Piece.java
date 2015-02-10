@@ -25,6 +25,7 @@ public class Piece {
 	public enum States {UNAVAILABLE, AVAILABLE, DOWNLOADED };
 	private States state;
 	private HashMap<String, Peer> seedingPeers = new HashMap<String, Peer>();
+	private Peer downloadingPeer = null;
 	
 	public Piece(TorrentFile torrentFile, int index, int offset, int length, byte[] hash)
 	{
@@ -81,6 +82,14 @@ public class Piece {
 	{
 		return this.dataBuffer;
 	}
+	public void SetDownloadingPeer(Peer peer)
+	{
+		this.downloadingPeer = peer;
+	}
+	public Peer GetDownloadingPeer()
+	{
+		return this.downloadingPeer;
+	}
 	
 	public PeerMessage.RequestMessage GetNextBlockRequest()
 	{
@@ -119,6 +128,7 @@ public class Piece {
 		this.seedingPeers.put(peer.GetPeerId(), peer);
 		state = States.AVAILABLE;
 	}
+	synchronized
 	public void deletePeer(Peer peer) 
 	{
 		this.seedingPeers.remove(peer.GetPeerId());
@@ -175,12 +185,10 @@ public class Piece {
 		
 		ensureDataBufferInitialized();
 		
-		//int blockPos = block.position();
 		block.rewind();
 		this.dataBuffer.position(offset);
 		this.dataBuffer.put(block);
 		block.rewind();
-		//block.position(blockPos);
 		
 		// Check for completion
 		int nextOffset = offset + block.remaining();

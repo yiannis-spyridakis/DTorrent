@@ -44,8 +44,15 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	public volatile boolean peerChoking = true;
 	private volatile boolean shutdownRequested = false;
 	
-	private Piece upPiece = null;
 	private Piece downPiece = null;
+	private synchronized Piece GetDownPiece()
+	{
+		return this.downPiece;
+	}
+	private synchronized void SetDownPiece(Piece newPiece)
+	{
+		this.downPiece = newPiece;
+	}
 	
 	private Peer(Socket peerSocket)
 	{
@@ -149,19 +156,30 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		}
 				
 		// Go for a new piece if we're available
-		if(downPiece == null)
+		if(GetDownPiece() == null)
 		{
 			//Log("Selecting new piece for download");			
-			downPiece = this.torrentFile.GetNextPieceForPeer(this);
-			if(downPiece == null)
+			SetDownPiece(this.torrentFile.GetNextPieceForPeer(this));
+			if(GetDownPiece() == null)
 			{
-				//Log("No new piece found");
+				Log("No new piece found");
+			}
+			else
+			{
+				GetDownPiece().SetDownloadingPeer(this);
 			}
 			
 		}
 		
 	}
 	
+	public void NotifyForDownloadedPiece(Piece piece)
+	{
+		if(piece.getIndex() == downPiece.getIndex())
+		{			
+			SetDownPiece(null);
+		}
+	}
 	
 	public void shutDown()
 	{
@@ -303,12 +321,14 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		
 		return served;
 	}
+	
+	synchronized
 	private boolean RequestNextBlock()
 	{
-		if(this.downPiece == null)
+		if(GetDownPiece() == null)
 			return false;
 				
-		PeerMessage.RequestMessage request = this.downPiece.GetNextBlockRequest();
+		PeerMessage.RequestMessage request = GetDownPiece().GetNextBlockRequest();
 		if(request == null)
 		{
 			return false;
@@ -397,6 +417,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	{
 		Log("Received bitfield from remote peer");
 		this.peerBitField = msg.getBitfield();
+		this.torrentFile.ProcessPeerBitfield(this, this.peerBitField);
 	}
 	private void HandlePeerRequest(PeerMessage.RequestMessage msg)
 	{
@@ -404,7 +425,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	}
 	private void HandlePieceMessage(PeerMessage.PieceMessage msg) throws Exception
 	{
-		this.downPiece.write(msg.getBlock(), msg.getOffset());
+		GetDownPiece().write(msg.getBlock(), msg.getOffset());
 	}
 	private void HandleHandshakeMessage(PeerMessage.HandshakeMessage msg)
 	{	
@@ -495,8 +516,9 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 					Peer.this.run();
 					
 					boolean served_request = ServeBlockRequests();
+					boolean pipelined_request = RequestNextBlock();
 					boolean sent_message = trySendNextMessage();
-					if(!(served_request || sent_message))
+					if(!(served_request || sent_message || pipelined_request))
 					{
 						Thread.yield();
 					}
@@ -529,12 +551,9 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 				while(!shutdownRequested)
 				{	
 					// Peer actions
-					Peer.this.run();
+					Peer.this.run();									
 					
-					boolean pipelined_request = RequestNextBlock();
-					boolean sent_message = tryReadNextMessage();
-					
-					if(!(pipelined_request || sent_message))
+					if(!tryReadNextMessage())
 					{
 						Thread.yield();
 					}

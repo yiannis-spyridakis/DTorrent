@@ -6,6 +6,7 @@ import java.util.Random;
 
 import com.torr.client.Piece;
 import com.torr.client.Peer;
+import com.torr.client.TorrentFile;
 
 /**
  * 
@@ -14,19 +15,19 @@ import com.torr.client.Peer;
  */
 public class PieceSelectionPolicy 
 {
-	private Piece pieces[];
+	private TorrentFile torrentFile = null;
 	//private HashMap<String, Peer> peers;
 	
-	public PieceSelectionPolicy(Piece pieces[])//, HashMap<String, Peer> peers)
+	public PieceSelectionPolicy(TorrentFile torrentFile)//, HashMap<String, Peer> peers)
 	{
-		this.pieces = pieces;
+		this.torrentFile = torrentFile;
 		//this.peers = peers;
 	}
 	public int GetDownloadedPiecesCount()
 	{
 		int ret = 0;
 		
-		for(Piece piece : this.pieces)
+		for(Piece piece : this.torrentFile.GetPieces())
 		{
 			if(piece.getState() == Piece.States.DOWNLOADED)
 				++ret;
@@ -36,10 +37,13 @@ public class PieceSelectionPolicy
 	}
 	public Piece GetNextPieceForPeer(Peer peer)
 	{
+		BitSet localBitfield = this.torrentFile.getBitField();		
 		BitSet peerBitfield = peer.GetBitField();
-		if(peerBitfield == null)
+		if(localBitfield == null || peerBitfield == null)
 			return null;
-				
+		
+		peerBitfield.andNot(localBitfield);
+						
 		int[] peerAvailableIndices = GetBitfieldSetIndices(peerBitfield);
 		if(peerAvailableIndices == null || peerAvailableIndices.length == 0)
 			return null;
@@ -55,20 +59,26 @@ public class PieceSelectionPolicy
 		else
 		{
 			// Implement rarest first policy
+			boolean found_piece = false;
 			int max_peer_count = 0;
 			for(int i = 0; i < peerAvailableIndices.length; ++i)
 			{
 				int examined_index = peerAvailableIndices[i];
-				Piece piece = pieces[examined_index];
+				Piece piece = this.torrentFile.GetPieces()[examined_index];
 				
 				int piece_seeding_peers_count = piece.GetSeedingPeersCount();
 				if(piece_seeding_peers_count > max_peer_count)
 				{
 					piece_index = examined_index;
+					found_piece = true;
 				}
 			}
+			if(!found_piece)
+			{
+				return null;
+			}
 		}
-		return pieces[piece_index];
+		return this.torrentFile.GetPieces()[piece_index];
 	}
 	
 	private int[] GetBitfieldSetIndices(BitSet peerBitfield)

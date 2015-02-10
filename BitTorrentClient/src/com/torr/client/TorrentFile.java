@@ -71,7 +71,7 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		Log("Validating target file...");
 		InitializeTorrentFile(this.destinationFile);
 		
-		this.pieceSelectionPolicy =  new PieceSelectionPolicy(pieces);
+		this.pieceSelectionPolicy =  new PieceSelectionPolicy(this);
 		
 		trackerClient = new TrackerClient(this, this.torrentMain.GetTCPServerPortNumber());
 		
@@ -103,6 +103,11 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 			{				
 			}
 		}
+	}
+	
+	public Piece[] GetPieces()
+	{
+		return this.pieces;
 	}
 	
 	public String getTrackerIP() {
@@ -216,21 +221,28 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		return this.torrentStorage.write(buffer, offset);
 	}
 	
+	synchronized
 	public void NotifyForDownloadedPiece(final Piece piece)
-	{
-		this.addTask(new FutureTask<Void>(new Callable<Void>()
-		{							
-			@Override
-			public Void call()// throws Exception
-			{
+	{		
+//		this.addTask(new FutureTask<Void>(new Callable<Void>()
+//		{							
+//			@Override
+//			public Void call()// throws Exception
+//			{
 				try
 				{
+					// Notify peer for download completion
+					piece.GetDownloadingPeer().NotifyForDownloadedPiece(piece);
+					
 					// write data to disk
 					write(piece.GetBuffer(), piece.getOffset());
 					if(piece.validate())
 					{
 						Log("Successfully downloaded piece #" + piece.getIndex());
-						// TODO: update UI!
+						
+						UpdateUIForDownloadedPieces();
+						
+						// TODO: Send have message etc
 					}
 					
 					
@@ -239,10 +251,10 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 				{
 					Log("Failed to write piece #" + piece.getOffset() + " to disk:", ex);
 				}
-				
-				return null;
-			}
-		}));		
+//				
+//				return null;
+//			}
+//		}));		
 	}
 	
 	public void ProcessPeerBitfield(final Peer peer, final BitSet bitfield)
@@ -257,8 +269,8 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 				for(int i = 0; i < local_pieces.length; ++i)
 				{
 					Piece piece = local_pieces[i];
-					if(bitfield.get(i) && piece.getState() != Piece.States.DOWNLOADED)
-					{
+					if(bitfield.get(i) && (piece.getState() != Piece.States.DOWNLOADED))
+					{						
 						piece.addPeer(peer);
 					}
 				}
@@ -351,8 +363,13 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		torrentMain.TorrentUI().SetFileName(this.descriptor.FileName());
 		torrentMain.TorrentUI().SetInfoHash(this.descriptor.InfoHash());
 		torrentMain.TorrentUI().SetNumberOfPieces(this.descriptor.NumberOfPieces().toString());		
+		UpdateUIForDownloadedPieces();
+	}
+	public void UpdateUIForDownloadedPieces()
+	{
 		torrentMain.TorrentUI().SetDownloadedPieces(new Integer(GetValidPiecesCount()).toString());
 	}
+	
 	
 	public void Log(String message)
 	{
