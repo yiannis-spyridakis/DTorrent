@@ -7,7 +7,7 @@ import org.apache.commons.io.FilenameUtils;
 
 public class TorrentFileDescriptor
 {
-	private TorrentFileHandler torrent_file_handler;
+	//private TorrentFileHandler torrent_file_handler;
 	private TorrentFile torrent_file;
 	private String file_name;
              
@@ -36,10 +36,6 @@ public class TorrentFileDescriptor
     {        
     	return torrent_file.info_hash_as_hex;
     }
-//    public byte[] InfoHashBinary()
-//    {
-//    	return torrent_file.info_hash_as_binary;
-//    }
     
     public Integer NumberOfPieces()
     {
@@ -59,8 +55,9 @@ public class TorrentFileDescriptor
 		String full_name = Paths.get(path).getFileName().toString();
 		file_name = FilenameUtils.removeExtension(full_name);
 		
-		torrent_file_handler = new TorrentFileHandler();
+		TorrentFileHandler torrent_file_handler = new TorrentFileHandler();
 		torrent_file = torrent_file_handler
-				.openTorrentFile(path);		
+				.openTorrentFile(path);	
+
 	}
 }

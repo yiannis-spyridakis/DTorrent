@@ -61,6 +61,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	}
 	
 	@Override
+	synchronized
 	public TorrentFile RegisterPeer(Peer peer, PeerMessage.HandshakeMessage handshakeMsg)
 	{
 		Log("Accepted request from Peer [" + peer.GetPeerId() + 
@@ -74,15 +75,18 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 		return this.peerId;
 	}
 	
+	synchronized
 	public void Log(String message)
 	{
 		this.torrentUI.PrintConsoleInfo(message);
 	}
+	
+	synchronized
 	public void Log(String message, Exception ex)
 	{
 		Log(message);
 		Log(ex.getMessage());
-		ex.printStackTrace();
+		//ex.printStackTrace();
 	}
 	
 	
@@ -141,13 +145,9 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 					else
 					{
 						Log("Creating new torrent file object");
+						
 						torrentFile = new TorrentFile(pThis, descriptor, torrentFolder);
-						Log("Putting new torrent file object in collection");
-						torrentFiles.put(info_hash, torrentFile);
-						
-						
-						Log("torrentfiles object count = [" + torrentFiles.size() + "]");
-						
+						torrentFiles.put(info_hash, torrentFile);						
 					}		
 					
 					Log("Successfully opened torrent file [" + torrentFile.getInfoHash() + "]");				
@@ -168,23 +168,11 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	
 	private void DoFileSystemBookKeeping() throws Exception
 	{
-		wsm = new WorkspaceManager(GetMainFolder());
+		wsm = new WorkspaceManager();
 	}
 	
-	// Returns the program's folder. Creates it if it doesn't exist
-	private File GetMainFolder()
-	{
-		String defaultDir = SystemUtils.GetDefaultDirectory();
-		Path folderPath = Paths.get(defaultDir).resolve(Consts.PROGRAM_FOLDER);
-		
-		File ret = folderPath.toFile();
-		// Create folder if it doesn't exist
-		ret.mkdirs();
-		
-		return ret;
-	}
-	
-	public void HandleConnection(Socket connection) throws Exception {
+	synchronized
+	public void HandleIncommingConnection(Socket connection) throws Exception {
 		Peer t = new Peer(this, connection);		
 	}
 	
@@ -192,6 +180,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	{
 		try
 		{
+			// tcpServer.GetPortNumber() -> FutureTask<Integer>
 			return this.tcpServer.GetPortNumber().get();
 		}
 		catch(Exception ex)
@@ -200,14 +189,27 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 		}
 	}
 	
-	
 	@Override
 	public void close()
 	{
-		wsm.close();
-		for(TorrentFile tf : torrentFiles.values())
+		this.shutdownRequested = true;
+		
+		if(this.wsm != null)
 		{
-			tf.close();
+			this.wsm.close();
+		}
+		
+		if(this.tcpServer != null)
+		{
+			this.tcpServer.close();
+		}
+		
+		if(torrentFiles != null)
+		{
+			for(TorrentFile tf : torrentFiles.values())
+			{
+				tf.close();
+			}
 		}
 	}
 	

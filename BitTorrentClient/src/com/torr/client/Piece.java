@@ -51,7 +51,8 @@ public class Piece {
 		this.state = state;
 		if(state == States.DOWNLOADED)
 		{
-			seedingPeers.clear();
+			this.seedingPeers.clear();
+			this.downloadingPeer = null;
 		}
 			
 	}
@@ -142,7 +143,7 @@ public class Piece {
 	{
 		ByteBuffer dataBuffer = readDirect();
 		if(!validateDirect(dataBuffer))
-			throw new Exception("Piece not valid.");
+			throw new Exception("Invalid read request for non-valid piece");
 		
 		return dataBuffer;
 	}
@@ -209,6 +210,7 @@ public class Piece {
 			{
 				this.state = States.DOWNLOADED;
 				this.seedingPeers.clear();
+				this.dataBuffer = null;
 			}
 		}
 		catch(Exception ex)

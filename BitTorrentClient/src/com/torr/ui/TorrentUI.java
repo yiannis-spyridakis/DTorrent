@@ -37,27 +37,29 @@ public class TorrentUI extends Application implements ITorrentUI {
 	private TorrentMain torrentMain = null;
 	private Stage mainStage = null;
 	
-	public static void main(String[] args) {
-		System.out.println("Launching JavaFX application.");		
+	public static void main(String[] args) 
+	{
+		
+		System.out.println("Launching JavaFX UI");		
 		
 		launch(args);
 
 	}	
 	
 	@Override
-	public void init() {
-		System.out.println("Inside the init() method.");		
+	public void init() 
+	{	
+		System.out.println("Initializing the user interface...");
 	}
 	
 	@Override
-	public void start(Stage stage) {
+	public void start(Stage stage) 
+	{
 		
 		mainStage = stage;
 		
 		try
 		{			
-			System.out.println("Inside the start() method.");
-	
 		    // Vertically-aligned main content
 		    VBox contentBox = new VBox();
 		    VBox detailsBox = createDetailsBox();
@@ -77,6 +79,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 			// Set the scene on the stage
 			stage.setScene(myScene);
 			
+			// Connect UI with DTorrent
 			this.torrentMain = new TorrentMain(this);
 			
 			// Window title
@@ -84,9 +87,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 			
 			
 			// Show the stage and its scene.
-			stage.show();	
-			
-			
+			stage.show();				
 		
 		}
 		catch(Exception ex)
@@ -98,10 +99,15 @@ public class TorrentUI extends Application implements ITorrentUI {
 	
 	
 	@Override
-	public void stop() {
-		System.out.println("Inisde the stop() method.");
+	public void stop() 
+	{		
+		System.out.println("UI shutting down...");
+		
 		if(this.torrentMain != null)
+		{
 			this.torrentMain.close();
+		}
+		System.exit(0);
 	}
 	
 	/*
@@ -305,18 +311,7 @@ public class TorrentUI extends Application implements ITorrentUI {
 		Text title = new Text("File Details");
 		title.setFont(titlesFont);
 		titleBox.getChildren().add(title);
-		
-//		Button downloadButton = new Button("Begin Download");
-//		HBox downloadButtonBox = new HBox();
-//		downloadButtonBox.setPadding(new Insets(0, 10, 0, 0));
-//		downloadButtonBox.setAlignment(Pos.CENTER_RIGHT);
-//		downloadButtonBox.getChildren().add(downloadButton);
-//		// Add handlers to the buttons
-//		downloadButton.setOnAction(new EventHandler<ActionEvent>() {
-//			public void handle(ActionEvent ae) {
-//				beginDownload();
-//			}
-//		});
+
 		
 		HBox detailsConsoleTitleBox = new HBox();
 		detailsConsoleTitleBox.setAlignment(Pos.CENTER);
@@ -347,12 +342,10 @@ public class TorrentUI extends Application implements ITorrentUI {
             	}
               }
           });
-		
-		
+				
 		detailsBox.getChildren().addAll(
 				titleBox, 
 				createDetailsPane(), 
-				//downloadButtonBox,
 				detailsConsoleTitleBox,
 				consoleWrapper);		
 		
@@ -451,11 +444,6 @@ public class TorrentUI extends Application implements ITorrentUI {
 			printConsoleInfoInternal("Unable to open torrent file:");
 			printConsoleInfoInternal(ex.getMessage());
 		}
-	}
-	private void beginDownload()
-	{
-		printConsoleInfoInternal("Starting download.");
-		//setStatusBarTextInternal("Starting download...");
 	}
 	
 	private void setStatusBarTextInternal(String text)

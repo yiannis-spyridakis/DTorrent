@@ -36,7 +36,6 @@ public class PieceSelectionPolicy
 		return ret;
 	}
 	
-	synchronized
 	public Piece GetNextPieceForPeer(Peer peer)
 	{
 		BitSet localBitfield = this.torrentFile.getBitField();		

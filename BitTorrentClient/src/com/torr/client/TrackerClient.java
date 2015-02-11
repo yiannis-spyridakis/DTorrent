@@ -6,6 +6,7 @@ import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.List;
 
+import com.torr.policies.ProtocolPolicy;
 import com.torr.trackermsgs.*;
 
 public class TrackerClient 
@@ -13,17 +14,20 @@ public class TrackerClient
 	implements AutoCloseable 
 {
 	
-	private int portId;
-	private TorrentFile torrentFile;
+	private int portId = 0;
+	private TorrentFile torrentFile = null;
+	private Socket requestSocket = null;
 	private volatile boolean shutdownRequested = false;
 	
-	public MessageToTracker message;
+	public MessageToTracker message = null;
 	
 	TrackerClient(TorrentFile torrentFile, int portId) 
 	{
 		this.portId = portId;
 		this.torrentFile = torrentFile;
-		message = new MessageToTracker(torrentFile.getInfoHash(), torrentFile.getPeerId(), this.portId);
+		
+		message = new MessageToTracker(
+				torrentFile.getInfoHash(), torrentFile.getPeerId(), this.portId);
 		this.start();
 	}
 	
@@ -37,6 +41,9 @@ public class TrackerClient
 				ObjectOutputStream out = new ObjectOutputStream(requestSocket.getOutputStream());
 				ObjectInputStream in = new ObjectInputStream(requestSocket.getInputStream()))
 			{
+				// Allow forcibly closing the socket
+				this.requestSocket = requestSocket;
+				
 				out.writeObject(message);
 				out.flush();
 			
@@ -56,7 +63,7 @@ public class TrackerClient
 			
 			try
 			{
-				sleep(1900000);
+				sleep(ProtocolPolicy.PEER_REFRESH_INTERVAL);
 			}
 			catch(InterruptedException ex)
 			{
@@ -68,7 +75,17 @@ public class TrackerClient
 	@Override
 	public void close()
 	{
-		this.shutdownRequested = true;
+		try
+		{
+			this.shutdownRequested = true;
+			if(this.requestSocket != null)
+			{
+				this.requestSocket.close();
+			}
+		}
+		catch(Exception ex)
+		{			
+		}
 	}
 	
 }

@@ -8,7 +8,7 @@ import java.net.Socket;
 import java.util.concurrent.*;
 
 //John
-public class TCPServer implements Runnable {
+public class TCPServer implements Runnable, AutoCloseable {
 	
 	private ServerSocket providerSocket;
 	private Socket	connection = null;
@@ -17,11 +17,13 @@ public class TCPServer implements Runnable {
 	private Thread backgroundThread;
 	private volatile boolean portCreated = false;
 	private TorrentMain torrentMain = null;
+	private volatile boolean shutdownRequested = false;
 
 
 	TCPServer(TorrentMain torrentFiles) 
 	{
 		this.torrentMain = torrentFiles;
+		
 		backgroundThread = new Thread(this);
 		backgroundThread.start();
 	};
@@ -56,34 +58,48 @@ public class TCPServer implements Runnable {
 	{
 		openServer();
 	}
+	
+	@Override
+	public void close()
+	{
+		try
+		{
+			this.shutdownRequested = true;
+			if(this.providerSocket != null)
+			{
+				this.providerSocket.close();
+			}
+		}
+		catch(Exception ex)
+		{
+		}
+	}
 
-	void openServer() {
+	void openServer() 
+	{
 		try
 		{
 			// creating a server socket
 			providerSocket	= new ServerSocket(0, 10);
 			portCreated = true;
 
-			while(true) {
+			while(!this.shutdownRequested) 
+			{
 				// Wait for connection
 				connection = providerSocket.accept();
-				torrentMain.HandleConnection(connection);
+				torrentMain.HandleIncommingConnection(connection);
 			}
-
 		}
-		catch (Exception ex) {
-			ex.printStackTrace();
+		catch (Exception ex) 
+		{
+			if(!this.shutdownRequested)
+			{
+				ex.printStackTrace();
+			}
 		}
 		finally
 		{
-			// Closing connection
-			try
-			{
-				providerSocket.close();
-			}
-			catch(IOException ioException) {
-				ioException.printStackTrace();
-			}
+			close();
 		}
 	}
 }

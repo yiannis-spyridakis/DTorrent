@@ -19,7 +19,7 @@ import com.torr.msgs.PeerMessage;
  * - Its public methods are thread-safe 
  *
  */
-public class Peer /*extends TasksQueue*/ implements Runnable  {
+public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	
 	private Socket peerSocket = null;
 	private TorrentFile torrentFile = null;
@@ -36,23 +36,16 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	
 	private BitSet peerBitField = null;
 	private String peerId = null;
+	private Piece downPiece = null; // Currently downloaded piece
 	
 	// Volatiles
 	public volatile boolean clientInterested = false;
 	public volatile boolean peerInterested = false;
 	public volatile boolean clientChocking = true;
 	public volatile boolean peerChoking = true;
+	
 	private volatile boolean shutdownRequested = false;
 	
-	private Piece downPiece = null;
-	private synchronized Piece GetDownPiece()
-	{
-		return this.downPiece;
-	}
-	private synchronized void SetDownPiece(Piece newPiece)
-	{
-		this.downPiece = newPiece;
-	}
 	
 	private Peer(Socket peerSocket)
 	{
@@ -110,7 +103,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		if(shut_down)
 		{
 			System.out.println("Shutting down peer");
-			shutDown();
+			close();
 			return;
 		}
 		
@@ -122,8 +115,34 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		SendBitfield();
 
 		FireBackgroundThreads();		
+	}	
+	
+	@Override
+	public void close()
+	{
+		try
+		{
+			Log("Closing connection with peer [" + this.GetPeerId() + "]");
+			
+			this.shutdownRequested = true;
+			this.inputStream.close();
+			this.outputStream.close();
+			this.peerSocket.close();
+		}
+		catch(Exception ex)
+		{			
+		}			
 	}
 	
+	private synchronized Piece GetDownPiece()
+	{
+		return this.downPiece;
+	}
+	private synchronized void SetDownPiece(Piece newPiece)
+	{
+		this.downPiece = newPiece;
+	}
+		
 	synchronized
 	private boolean InitializeStreams()
 	{
@@ -152,20 +171,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		if(torrentFile == null)
 		{
 			Log("Invalid peer state. Aborting...");
-			shutDown();
-		}
-				
-		/*
-		 * Hack to get around synchronization issue:
-		 * The client stops downloading pieces after a random ammound
-		 * of successful piece downloads
-		 */
-		try
-		{
-			Thread.sleep(100);
-		}
-		catch(InterruptedException ex)
-		{			
+			close();
 		}
 		
 		// Go for a new piece if we're available
@@ -187,6 +193,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		
 	}
 	
+	synchronized
 	public void NotifyForDownloadedPiece(Piece piece)
 	{
 		if(piece.getIndex() == downPiece.getIndex())
@@ -196,13 +203,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		}
 	}
 	
-	public void shutDown()
-	{
-		if(this.torrentFile != null)
-			Log("Closing connection with peer [" + this.GetPeerId() + "]");
-			
-		this.shutdownRequested = true;		
-	}
+
 	public boolean IsAlive()
 	{
 		return !this.shutdownRequested;
@@ -449,7 +450,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 		
 		if(!msg.getInfoHash().equals(this.torrentFile.getInfoHash()))
 		{
-			shutDown();
+			close();
 		}
 		this.peerId =  msg.getPeerId();
 		Log("Established connection with Peer [" + msg.getPeerId() + "]" + 
@@ -541,8 +542,12 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 			}
 			catch(Exception ex)
 			{
-				Log("Error in peer upload [" + GetPeerId() + "]:", ex);
-				shutDown();
+				// Only act if we're not shutting down
+				if(!Peer.this.shutdownRequested)
+				{				
+					Log("Error in peer upload [" + GetPeerId() + "]:", ex);
+					close();
+				}
 			}
 		}
 	}
@@ -576,8 +581,12 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 			}
 			catch(Exception ex)
 			{
-				Log("Error in peer download [" + GetPeerId() + "]:", ex);
-				shutDown();
+				// Only act if we're not shutting down
+				if(!Peer.this.shutdownRequested)
+				{					
+					Log("Error in peer download [" + GetPeerId() + "]:", ex);
+					Peer.this.close();
+				}
 			}
 		}
 	}	
@@ -590,10 +599,28 @@ public class Peer /*extends TasksQueue*/ implements Runnable  {
 	
 	public void Log(String message)
 	{
-		this.torrentFile.Log(message);
+		try
+		{
+			if(this.torrentFile != null)
+			{
+				this.torrentFile.Log(message);
+			}
+		}
+		catch(Exception ex)
+		{
+		}
 	}
 	public void Log(String message, Exception ex)
 	{
-		this.torrentFile.Log(message, ex);
+		try
+		{
+			if(this.torrentFile != null)
+			{
+				this.torrentFile.Log(message, ex);
+			}
+		}
+		catch(Exception ex2)
+		{			
+		}
 	}	
 }

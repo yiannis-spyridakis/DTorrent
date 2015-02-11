@@ -43,26 +43,12 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	{
 		this.torrentMain = torrentMain;
 		this.descriptor = descriptor;
-		Log("TorrentFile(): Initialized this.torrentMain, this.descriptor");
-		
-		
 		this.destinationFile = 
 				destinationDir.toPath().resolve(descriptor.FileName()).toFile();		
 		
-		Log("TorrentFile(): Initialized this.destinationFile");
-		
-		
-//		Log("Validating target file...");
-//		InitializeTorrentFile(this.destinationFile);		
-//		trackerClient = new TrackerClient(this, this.torrentMain.GetTCPServerPortNumber());
-		
-		Log("TorrentFile(): Before creating the background thread");
+		// Initialize background thread
 		this.backgroundThread = new Thread(this);
-		Log("TorrentFile(): Before running background thread");
 		this.backgroundThread.start();
-		
-		
-		
 	}
 	
 	@Override
@@ -93,16 +79,33 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	@Override
 	public void close()
 	{
-		if(torrentStorage != null)
+		try
 		{
-			try
-			{
-				torrentStorage.close();
-			} 
-			catch(Exception ex)
-			{				
+			this.shutdownRequested = true;
+			
+			if(this.torrentStorage != null)
+			{	
+				this.torrentStorage.close();	
 			}
-		}
+			
+			if(this.peers != null)
+			{
+				for(Peer peer : this.peers.values())
+				{
+					peer.close();
+				}
+				this.peers.clear();
+				this.peers = null;
+			}
+			
+			if(this.trackerClient != null)
+			{
+				this.trackerClient.close();
+			}
+		} 
+		catch(Exception ex)
+		{				
+		}		
 	}
 	
 	public Piece[] GetPieces()
@@ -216,7 +219,7 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		
 	}
 	
-	public int write(ByteBuffer buffer, long offset) throws IOException
+	private int write(ByteBuffer buffer, long offset) throws IOException
 	{
 		return this.torrentStorage.write(buffer, offset);
 	}
@@ -232,8 +235,7 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 				try
 				{
 					// Notify peer for download completion
-					Peer downloadingPeer = piece.GetDownloadingPeer();
-					downloadingPeer.NotifyForDownloadedPiece(piece);
+					Peer downloadingPeer = piece.GetDownloadingPeer();					
 					
 					// write data to disk
 					write(piece.GetBuffer(), piece.getOffset());
@@ -243,10 +245,8 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 						
 						UpdateUIForDownloadedPieces();
 						
-						// TODO: Send have message etc
-					}
-					
-					
+						downloadingPeer.NotifyForDownloadedPiece(piece);
+					}										
 				}
 				catch(Exception ex)
 				{
@@ -258,6 +258,7 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		}));		
 	}
 	
+	synchronized
 	public void ProcessPeerBitfield(final Peer peer, final BitSet bitfield)
 	{
 		final Piece[] local_pieces = this.pieces;
@@ -281,6 +282,7 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		}));
 	}
 	
+	synchronized
 	public void ProcessPeerPieceAvailability(final Peer peer, final int index) throws Exception
 	{		
 		if(index > pieces.length - 1)
@@ -303,7 +305,7 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		}));				
 	}
 	
-	//synchronized
+	synchronized
 	public Piece GetNextPieceForPeer(Peer peer)
 	{
 		return this.pieceSelectionPolicy.GetNextPieceForPeer(peer);
@@ -366,6 +368,8 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		torrentMain.TorrentUI().SetNumberOfPieces(this.descriptor.NumberOfPieces().toString());		
 		UpdateUIForDownloadedPieces();
 	}
+	
+	synchronized
 	public void UpdateUIForDownloadedPieces()
 	{
 		torrentMain.TorrentUI().SetDownloadedPieces(new Integer(GetValidPiecesCount()).toString());
@@ -374,11 +378,17 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	
 	public void Log(String message)
 	{
-		torrentMain.Log(message);
+		if(this.torrentMain != null)
+		{
+			this.torrentMain.Log(message);
+		}
 	}
 	public void Log(String message, Exception ex)
 	{
-		torrentMain.Log(message, ex);
+		if(this.torrentMain != null)
+		{
+			this.torrentMain.Log(message, ex);
+		}
 	}
 	
 }

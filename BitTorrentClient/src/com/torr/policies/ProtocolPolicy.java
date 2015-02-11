@@ -11,4 +11,5 @@ public class ProtocolPolicy {
 	public static final int MAX_INCOMING_CONNECTIONS = 40;
 	public static final int MAX_OUTGOING_CONNECTIONS = 40;
 	public static final int MAX_OUTSTANDING_REQUESTS = 20;
+	public static final int PEER_REFRESH_INTERVAL = 5 * 60 * 1000; // 5 mins  
 }

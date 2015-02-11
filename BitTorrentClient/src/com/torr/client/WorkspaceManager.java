@@ -5,15 +5,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.UUID;
 
+import com.torr.utils.SystemUtils;
+
 public class WorkspaceManager implements AutoCloseable {
 	
 	private static final String FILE_PREFIX = "BT";
 	private RandomAccessFile raf;
 	private File workspaceFolder;
 	
-	public WorkspaceManager(File programFolder) throws Exception
+	public WorkspaceManager() throws Exception
 	{
-		workspaceFolder = GetWorkspace(programFolder);
+		workspaceFolder = GetWorkspace(GetMainFolder());
 		if(workspaceFolder == null)
 			throw new Exception("Unable to create workspace");
 		
@@ -45,6 +47,18 @@ public class WorkspaceManager implements AutoCloseable {
 		return torrentFolder;
 	}
 	
+	// Returns the program's folder. Creates it if it doesn't exist
+	private File GetMainFolder()
+	{
+		String defaultDir = SystemUtils.GetDefaultDirectory();
+		Path folderPath = Paths.get(defaultDir).resolve(Consts.PROGRAM_FOLDER);
+		
+		File ret = folderPath.toFile();
+		// Create folder if it doesn't exist
+		ret.mkdirs();
+		
+		return ret;
+	}	
 	
 	private File GetWorkspace(File programFolder) throws IOException
 	{
