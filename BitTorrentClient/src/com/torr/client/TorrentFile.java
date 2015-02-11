@@ -3,6 +3,7 @@ package com.torr.client;
 import java.io.File;
 import java.io.IOException;
 import java.net.Inet4Address;
+import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -108,6 +109,21 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		}		
 	}
 	
+	synchronized
+	public void RegisterPeer(Peer peer)
+	{
+		this.peers.put(peer.GetPeerId(), peer);
+		UpdateUIForConnectedPeers();
+	}
+	
+	synchronized
+	public void UnregisterPeer(Peer peer)
+	{
+		this.peers.remove(peer.GetPeerId());
+		UpdateUIForConnectedPeers();
+	}
+	
+	
 	public Piece[] GetPieces()
 	{
 		return this.pieces;
@@ -157,9 +173,8 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 					   !peerIP.equals(localIP) && 
 					   !this.peers.containsKey(msg.peer_id))
 					{
-						this.peers.put(
-								msg.peer_id, 
-								new Peer(this, msg.getIP().getHostAddress(), msg.getPort()));
+						new Peer(this, msg.getIP().getHostAddress(), 
+								 msg.getPort(), msg.peer_id);
 					}
 				}
 				catch(Exception ex)
@@ -187,17 +202,13 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		return this.pieces[index];
 	}
 	
-	private void setPieceState(int index, Piece.States state) {
-		this.pieces[index].setState( state );
-	}
-	
 	public BitSet getBitField()
 	{
 		BitSet bitfield = new BitSet(this.pieces.length);
 		for(int i = 0; i < this.pieces.length; ++ i)
 		{
 			Piece piece = pieces[i];
-			if(piece.getState() == Piece.States.DOWNLOADED)
+			if(piece.isValid())
 			{
 				bitfield.set(i);
 			}
@@ -271,9 +282,9 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 				for(int i = 0; i < local_pieces.length; ++i)
 				{
 					Piece piece = local_pieces[i];
-					if(bitfield.get(i) && (piece.getState() != Piece.States.DOWNLOADED))
-					{						
-						piece.addPeer(peer);
+					if(bitfield.get(i) && (!piece.isValid()))
+					{
+						piece.IncreaseAvailablePeers();
 					}
 				}
 				
@@ -295,9 +306,9 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 			@Override
 			public Void call()// throws Exception
 			{				
-				if(piece.getState() != Piece.States.DOWNLOADED)
+				if(!piece.isValid())
 				{
-					piece.addPeer(peer);
+					piece.IncreaseAvailablePeers();
 				}
 				
 				return null;
@@ -309,6 +320,15 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	public Piece GetNextPieceForPeer(Peer peer)
 	{
 		return this.pieceSelectionPolicy.GetNextPieceForPeer(peer);
+	}
+	
+	synchronized
+	public void SendHaveMessageToPeers(final int pieceIndex)
+	{
+		for(Peer peer : this.peers.values())
+		{
+			peer.SendHaveMessage(pieceIndex);
+		}
 	}
 	
 	
@@ -341,9 +361,6 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 			int thisPieceLength = Math.min(pieceLength, (fileLength - currentPieceOffset));			
 			this.pieces[i] = new Piece(this, i, currentPieceOffset, thisPieceLength, hashes.get(i));
 			this.pieces[i].validate();
-			this.setPieceState(i, this.pieces[i].isValid() 
-									? Piece.States.DOWNLOADED
-									: Piece.States.UNAVAILABLE);
 			
 			currentPieceOffset += thisPieceLength;
 		}
@@ -365,7 +382,14 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	{
 		torrentMain.TorrentUI().SetFileName(this.descriptor.FileName());
 		torrentMain.TorrentUI().SetInfoHash(this.descriptor.InfoHash());
-		torrentMain.TorrentUI().SetNumberOfPieces(this.descriptor.NumberOfPieces().toString());		
+		torrentMain.TorrentUI().SetNumberOfPieces(this.descriptor.NumberOfPieces().toString());
+		
+		String parentFolder = this.destinationFile.getParent();
+		if(parentFolder.length() > 100)
+		{
+			parentFolder = parentFolder.substring(0, 100) + "...";
+		}
+		torrentMain.TorrentUI().SetSaveLocation(this.destinationFile.getParent());
 		UpdateUIForDownloadedPieces();
 	}
 	
@@ -373,6 +397,10 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 	public void UpdateUIForDownloadedPieces()
 	{
 		torrentMain.TorrentUI().SetDownloadedPieces(new Integer(GetValidPiecesCount()).toString());
+	}
+	private void UpdateUIForConnectedPeers()
+	{
+		torrentMain.TorrentUI().SetPeersNumber(new Integer(this.peers.size()).toString());
 	}
 	
 	

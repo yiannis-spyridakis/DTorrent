@@ -16,12 +16,10 @@ import com.torr.client.TorrentFile;
 public class PieceSelectionPolicy 
 {
 	private TorrentFile torrentFile = null;
-	//private HashMap<String, Peer> peers;
 	
 	public PieceSelectionPolicy(TorrentFile torrentFile)//, HashMap<String, Peer> peers)
 	{
 		this.torrentFile = torrentFile;
-		//this.peers = peers;
 	}
 	public int GetDownloadedPiecesCount()
 	{
@@ -29,8 +27,10 @@ public class PieceSelectionPolicy
 		
 		for(Piece piece : this.torrentFile.GetPieces())
 		{
-			if(piece.getState() == Piece.States.DOWNLOADED)
+			if(piece.isValid())
+			{
 				++ret;
+			}
 		}
 		
 		return ret;

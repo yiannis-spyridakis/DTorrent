@@ -17,7 +17,7 @@ import com.torr.utils.*;
 import com.torr.bencode.TorrentFileDescriptor;
 import com.torr.msgs.PeerMessage;
 
-public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, IPeerRegistrar {
+public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, ITorrentFileHolder {
 	
 	private ITorrentUI torrentUI;
 	private TCPServer tcpServer = new TCPServer(this);
@@ -62,12 +62,9 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 	
 	@Override
 	synchronized
-	public TorrentFile RegisterPeer(Peer peer, PeerMessage.HandshakeMessage handshakeMsg)
-	{
-		Log("Accepted request from Peer [" + peer.GetPeerId() + 
-				"] for file [" + handshakeMsg.getInfoHash() + "]");
-		
-		return this.torrentFiles.get(handshakeMsg.getInfoHash());
+	public TorrentFile GetTorrentFileByInfoHash(final String infoHash)
+	{		
+		return this.torrentFiles.get(infoHash);
 	}
 	
 	public String GetPeerId()
@@ -136,6 +133,17 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 						Files.copy(sourceFile.toPath(), destinationFile.toPath());
 					}
 					
+					for(TorrentFile tf: torrentFiles.values())
+					{
+						tf.close();
+					}
+					torrentFiles.clear();
+					
+					TorrentFile torrentFile = new TorrentFile(pThis, descriptor, torrentFolder);
+					torrentFiles.put(info_hash, torrentFile);	
+					
+					/* Not currently supporting more than one files
+					 * 
 					TorrentFile torrentFile = torrentFiles.get(info_hash);
 					if(torrentFile != null)
 					{
@@ -149,7 +157,7 @@ public class TorrentMain extends TasksQueue implements AutoCloseable, Runnable, 
 						torrentFile = new TorrentFile(pThis, descriptor, torrentFolder);
 						torrentFiles.put(info_hash, torrentFile);						
 					}		
-					
+					*/
 					Log("Successfully opened torrent file [" + torrentFile.getInfoHash() + "]");				
 				}
 				catch(Exception ex)

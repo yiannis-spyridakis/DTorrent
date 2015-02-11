@@ -83,15 +83,7 @@ public class Bencoder
 	/**
 	 * Parses a bencoded String located <code>input[index</code> and returns
 	 * it as a String object.
-	 * 
-	 * @param input
-	 *            Contains bencoded data.
-	 * @param index
-	 *            A valid index into <code>data</code> that points to the
-	 *            beginning of a bencoded String.
-	 * @return A String representing the bencoded String at
-	 *         <code>data[index]</code>.
-	 */
+	  */
 	public String unbencodeString(byte[] input, Index index)
 	{
 		String return_string = null;
@@ -210,15 +202,7 @@ public class Bencoder
 	/**
 	 * Parses a bencoded Integer stored in <code>input</code> and returns it
 	 * as an Integer object.
-	 * 
-	 * @param input
-	 *            Contains bencoded data.
-	 * @param index
-	 *            A valid index into <code>input</code> that points to the
-	 *            beginning of a bencoded Integer.
-	 * @return An Integer representing the bencoded Integer in
-	 *         <code>input</code>.
-	 */
+	 	 */
 	public Integer unbencodeInteger(byte[] input, Index index)
 	{
 		Integer return_integer;
@@ -276,11 +260,6 @@ public class Bencoder
 	 * Bencodes a HashMap into a bencoded dictionary.The HashMap must contain
 	 * only bencoded strings representing bencoded integers, strings, lists, and
 	 * dictionaries.
-	 * 
-	 * @param input
-	 *            A HashMap containing bencoded objects representing the entries
-	 *            in a dictionary.
-	 * @return
 	 */
 	public byte[] bencodeDictionary(HashMap input)
 	{
@@ -320,13 +299,6 @@ public class Bencoder
 	/**
 	 * Parses a bencoded Dictionary represented by <code>input</code> and
 	 * returns it as a Map object.
-	 * 
-	 * @param input
-	 *            Contains bencoded input.
-	 * @param index
-	 *            A valid index into <code>input</code> that points to the
-	 *            beginning of a bencoded Dictionary.
-	 * @return A Map representing the bencoded Dictionary at <code>input</code>.
 	 */
 	public HashMap unbencodeDictionary(byte[] input)
 	{
@@ -337,14 +309,6 @@ public class Bencoder
 	/**
 	 * Parses a bencoded Dictionary located <code>input[index]</code> and
 	 * returns it as a Map object.
-	 * 
-	 * @param input
-	 *            Contains bencoded input.
-	 * @param index
-	 *            A valid index into <code>input</code> that points to the
-	 *            beginning of a bencoded Dictionary.
-	 * @return A Map representing the bencoded Dictionary at
-	 *         <code>input[index]</code>.
 	 */
 	public HashMap unbencodeDictionary(byte[] input, Index index)
 	{
@@ -412,10 +376,6 @@ public class Bencoder
 	/**
 	 * Takes a vector of bencoded objects and returns a bencoded list containing
 	 * the same data.
-	 * 
-	 * @param input
-	 *            A Vector containing bencoded data.
-	 * @return
 	 */
 	public byte[] bencodeList(Vector input)
 	{
@@ -455,13 +415,6 @@ public class Bencoder
 	/**
 	 * Parses a bencoded List stored in <code>input</code> and returns it as a
 	 * List object.
-	 * 
-	 * @param input
-	 *            Contains a bencoded List.
-	 * @param index
-	 *            A valid index into <code>input</code> that points to the
-	 *            beginning of a bencoded List.
-	 * @return A List representing the bencoded List in <code>input</code>.
 	 */
 	public Vector unbencodeList(byte[] input, Index index)
 	{
@@ -506,16 +459,7 @@ public class Bencoder
 	}
 
 	/**
-	 * Reads the byte at <code>input[index]</code> and returns an integer
-	 * based on the value.
-	 * 
-	 * @param input
-	 *            Contains bencoded input.
-	 * @param index
-	 *            A valid index into input that points to the beginning of a
-	 *            bencoded String, Integer, List or Dictionary.
-	 * @return An <code>int</code> based on the value of the byte at
-	 *         <code>input[index]</code>.
+	 * Reads the byte at <cod
 	 */
 	public int getEncodedType(byte[] input, int index)
 	{

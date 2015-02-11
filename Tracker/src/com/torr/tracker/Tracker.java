@@ -11,7 +11,8 @@ import java.util.Map;
 
 import com.torr.trackermsgs.MessageToClient;
 
-public class Tracker {
+public class Tracker 
+{
 	ServerSocket providerSocket;
 	Socket	connection = null;
 	ObjectOutputStream out;
@@ -21,7 +22,8 @@ public class Tracker {
 	
 	Tracker() {}
 	
-	void openServer() {
+	void openServer() 
+	{
 		try
 		{
 			// creating a server socket + test comment
@@ -40,7 +42,8 @@ public class Tracker {
 			}
 			
 		}
-		catch (IOException ioException) {
+		catch (IOException ioException) 
+		{
 			ioException.printStackTrace();
 		}
 		finally
@@ -50,7 +53,8 @@ public class Tracker {
 			{
 				providerSocket.close();
 			}
-			catch(IOException ioException) {
+			catch(IOException ioException) 
+			{
 				ioException.printStackTrace();
 			}
 		}

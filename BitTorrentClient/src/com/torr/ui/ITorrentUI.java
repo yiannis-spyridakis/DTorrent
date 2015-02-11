@@ -23,6 +23,8 @@ public interface ITorrentUI {
 
 	public void SetPeersNumber(final String text);	
 	
+	public void SetSaveLocation(final String text);
+	
 	public void PrintConsoleInfo(final String text);
 	
 	public FutureTask<Integer> ShowMessageBox(final String message, final String title, final int options);

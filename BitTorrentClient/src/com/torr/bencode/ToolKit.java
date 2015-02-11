@@ -26,10 +26,7 @@ public class ToolKit
 
 	/**
 	 * Converts a byte[] into a BitSet. 
-	 * @author PETRIDIS
-	 * @param bytes
-	 *            A <code>byte[]</code> representing the bits in <code>bytes</code>.
-	 * @return A BitSet object representing the input byte[].
+	 *  @return A BitSet object representing the input byte[].
 	 */
 	public static BitSet bytesToBitSet(byte[] bytes)
 	{
@@ -40,8 +37,7 @@ public class ToolKit
 	
 	/**
 	 * Converts a byte[] into a BitSet. 
-	 * @author PETRIDIS
-	 * @param bytes
+	 * 
 	 *            A <code>byte[]</code> representing the bits in <code>bytes</code>.
 	 * @param bits
 	 *            The {@link BitSet} to fill.
@@ -58,9 +54,6 @@ public class ToolKit
 
 	/**
 	 * Converts a <code>BitSet</code> into a <code>byte[]</code>.
-	 * @author Chris Lauderdale
-	 * @param bits A {@link BitSet}.
-	 * @param bytes The <code>byte</code> array to fill.
 	 */
 	public static void bitSetToBytes(BitSet bits, byte[] bytes)
 	{
@@ -70,11 +63,6 @@ public class ToolKit
 			bytes[i>>>3]|=0x80>>>(i&7);
 	}
 	
-	/**
-	 * Converts a <code>BitSet</code> into a <code>byte[]</code>.
-	 * @param bits A <code>BitSet</code>.
-	 * @return A <code>byte[]</code> containing the same bits stored in <code>bits</code>.
-	 */
 	public static byte[] bitSetToBytes(BitSet bits)
 	{
 		final byte[] bytes = new byte[(bits.size() + 7) >>> 3];

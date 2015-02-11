@@ -10,6 +10,8 @@ import javafx.event.*;
 import javafx.geometry.*;
 import javafx.scene.*;
 import javafx.stage.*;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
 import javafx.scene.control.*;
@@ -23,6 +25,9 @@ import com.torr.client.*;
 
 public class TorrentUI extends Application implements ITorrentUI {
 	
+	private final int CONSOLE_LINES_NUM_LOW = 100;
+	private final int CONSOLE_LINES_NUM_HIGH = 150;
+	
 	private Text statusBarText = null;
 	private Text workspaceFolderText = null;
 	private Text fileNameText = null;
@@ -31,11 +36,13 @@ public class TorrentUI extends Application implements ITorrentUI {
 	private Text downloadedPiecesText = null;
 	private Text downloadSpeedText = null;
 	private Text peersNumberText = null;
+	private Text saveLocationText = null;
 	private ScrollPane consoleWrapper = null;
 	private VBox detailsConsole = null;
 	private boolean scrollToBottom = false;
 	private TorrentMain torrentMain = null;
 	private Stage mainStage = null;
+	private String saveLocation = null;
 	
 	public static void main(String[] args) 
 	{
@@ -232,6 +239,19 @@ public class TorrentUI extends Application implements ITorrentUI {
             }
         });	
 	}	
+	
+	@Override
+	public void SetSaveLocation(final String text)
+	{
+        Platform.runLater(new Runnable() {
+
+            @Override
+            public void run() {
+            	SetSaveLocationInternal(text);
+            }
+        });			
+	}
+	
 	@Override
 	public void PrintConsoleInfo(final String text)
 	{
@@ -384,10 +404,16 @@ public class TorrentUI extends Application implements ITorrentUI {
 	    downloadSpeedText = new Text();
 	    downloadSpeedText.setFont(valuesFont);
 	    setDownloadSpeedInternal(0);
-	    Text npr = new Text("Peers Number:");
+	    Text npr = new Text("Connected Peers:");
 	    npr.setFont(titlesFont);
 	    peersNumberText = new Text("0");
 	    peersNumberText.setFont(valuesFont);
+	    Text sl = new Text("Save location:");
+	    sl.setFont(titlesFont);
+	    saveLocationText = new Text("N/A");
+	    saveLocationText.setFont(valuesFont);
+	    Button copyButton = new Button("Copy");
+	    
 	    
 	    detailsPane.add(fn, 0, 0);
 	    detailsPane.add(fileNameText, 1, 0);
@@ -400,7 +426,21 @@ public class TorrentUI extends Application implements ITorrentUI {
 	    detailsPane.add(ds, 0, 4);
 	    detailsPane.add(downloadSpeedText, 1, 4);	    
 	    detailsPane.add(npr, 0, 5);
-	    detailsPane.add(peersNumberText, 1, 5);    
+	    detailsPane.add(peersNumberText, 1, 5);  
+	    detailsPane.add(sl, 0, 6);
+	    detailsPane.add(saveLocationText, 1, 6);
+	    detailsPane.add(copyButton, 2, 6);
+	    
+	    copyButton.setOnAction(new EventHandler<ActionEvent>()
+	    {
+	    	public void handle(ActionEvent ae)
+	    	{
+	    		final ClipboardContent content = new ClipboardContent();
+	    		content.putString(TorrentUI.this.saveLocation);
+	    		Clipboard.getSystemClipboard().setContent(content);
+	    	}
+	    });
+	    
 	    
 	    return detailsPane;
 	}
@@ -474,12 +514,35 @@ public class TorrentUI extends Application implements ITorrentUI {
 	{
 		this.peersNumberText.setText(text);
 	}
+	private void SetSaveLocationInternal(final String text)
+	{
+		// Cache for clipboard copying
+		saveLocation = text;
+		
+		String finalText = text;
+		if(finalText.length() > 60)
+		{
+			finalText = finalText.substring(0, 60) + "...";
+		}		
+		
+		this.saveLocationText.setText(finalText);
+	}
+	
 	private void printConsoleInfoInternal(String text)
 	{
 		Text outputText = new Text(text);
 		outputText.setFill(Color.WHITE);
 		
-		detailsConsole.getChildren().add(outputText);
+		ObservableList<Node> children = detailsConsole.getChildren();
+		
+		// Drop lines num to 100 if they're over 150
+		int size = children.size();
+		if(size > CONSOLE_LINES_NUM_HIGH)
+		{
+			children.remove(0, size - CONSOLE_LINES_NUM_LOW);
+		}
+		
+		children.add(outputText);
 		
 		Platform.runLater(new Runnable() {
 

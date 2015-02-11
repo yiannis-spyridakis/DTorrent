@@ -22,9 +22,7 @@ public class Piece {
 	
 	private byte[] hash;
 	private volatile boolean valid;
-	public enum States {UNAVAILABLE, AVAILABLE, DOWNLOADED };
-	private States state;
-	private HashMap<String, Peer> seedingPeers = new HashMap<String, Peer>();
+	private volatile int availablePeers = 0;
 	private Peer downloadingPeer = null;
 	
 	public Piece(TorrentFile torrentFile, int index, int offset, int length, byte[] hash)
@@ -40,24 +38,11 @@ public class Piece {
 		this.length = length;
 		this.hash = hash;
 		this.valid = false;
-		this.state = States.UNAVAILABLE;
 	}
 	
 	public void setTorrentFile(TorrentFile torrentFile)
 	{
 		this.torrentFile = torrentFile;		
-	}
-	public void setState(States state) {
-		this.state = state;
-		if(state == States.DOWNLOADED)
-		{
-			this.seedingPeers.clear();
-			this.downloadingPeer = null;
-		}
-			
-	}
-	public States getState() {
-		return state;
 	}
 	public int getIndex()
 	{
@@ -120,23 +105,19 @@ public class Piece {
 	// Number of peers in swarm that have the piece
 	public int GetSeedingPeersCount()
 	{
-		return seedingPeers.size();
+		return this.availablePeers;
 	}
-	
-	synchronized
-	public void addPeer(Peer peer) 
+	public void IncreaseAvailablePeers()
 	{
-		this.seedingPeers.put(peer.GetPeerId(), peer);
-		state = States.AVAILABLE;
+		++this.availablePeers;
 	}
-	synchronized
-	public void deletePeer(Peer peer) 
+	public void DecreaseAvailablePeers()
 	{
-		this.seedingPeers.remove(peer.GetPeerId());
-		if(this.seedingPeers.isEmpty() && this.state != States.DOWNLOADED)
-		{
-			state = States.UNAVAILABLE;
-		}
+		--this.availablePeers;
+	}
+	public boolean IsAvailable()
+	{
+		return (!this.valid) && (this.availablePeers > 0);
 	}
 	
 	public ByteBuffer read() throws Exception
@@ -208,8 +189,7 @@ public class Piece {
 			this.valid = validateDirect(this.readDirect());
 			if(this.valid)
 			{
-				this.state = States.DOWNLOADED;
-				this.seedingPeers.clear();
+				this.availablePeers = 0;
 				this.dataBuffer = null;
 			}
 		}

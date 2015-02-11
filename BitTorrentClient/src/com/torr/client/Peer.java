@@ -38,83 +38,37 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	private String peerId = null;
 	private Piece downPiece = null; // Currently downloaded piece
 	
-	// Volatiles
 	public volatile boolean clientInterested = false;
 	public volatile boolean peerInterested = false;
 	public volatile boolean clientChocking = true;
 	public volatile boolean peerChoking = true;
 	
 	private volatile boolean shutdownRequested = false;
+	private volatile boolean incommingConnection = false;
+	private volatile boolean peerInitialized = false; 
+	private ITorrentFileHolder torrentFileHolder = null;
+	private String hostName = null;
+	private int portNumber = 0;
 	
-	
-	private Peer(Socket peerSocket)
+	public Peer(TorrentFile torrentFile, String hostName, int portNumber, String peerId) throws Exception
 	{
-		this.peerSocket = peerSocket;
-	}
-	public Peer(TorrentFile torrentFile, String hostName, int portNumber) throws Exception
-	{
-		this(torrentFile, new Socket(hostName, portNumber));
-	}
-	public Peer(TorrentFile torrentFile, Socket peerSocket) throws Exception
-	{
-		this(peerSocket);		
+		this.incommingConnection = false;
+		
 		this.torrentFile = torrentFile;
-		
-		this.outputStream = new ObjectOutputStream(peerSocket.getOutputStream());	
-		
-		Log("Sending handshake to peer");	
-		SendHandshake();	
-		Log("Sending bitfield to peer");
-		SendBitfield();
+		this.hostName = hostName;
+		this.portNumber = portNumber;
+		this.peerId = peerId;
 		
 		FireBackgroundThreads();
 	}
 	
-	public Peer(IPeerRegistrar peerRegistrar, Socket peerSocket) throws Exception
+	public Peer(ITorrentFileHolder torrentFileHolder, Socket peerSocket) throws Exception
 	{
-		this(peerSocket);		
+		this.incommingConnection = true;
+		this.torrentFileHolder = torrentFileHolder;
+		this.peerSocket = peerSocket;
 		
-		// If torrentFile != null => the peer has been added to the torrentFiles peers collection
-		InitializeStreams();
-		PeerMessage.HandshakeMessage inMsg = ReadHandshake();
-		System.out.println("Received handshake from remote peer");
-		
-		boolean shut_down = false;
-		if(inMsg != null)
-		{
-			this.peerId = inMsg.getPeerId();
-			this.torrentFile = peerRegistrar.RegisterPeer(this, inMsg);
-			if(this.torrentFile != null)
-			{
-				Log("Established connection with Peer [" + this.GetPeerId() + 
-						"] for file [" + inMsg.getInfoHash() + "]");
-			}
-			else
-			{
-				System.out.println("torrentFile == null");
-				shut_down = true;
-			}
-		}
-		else
-		{
-			System.out.println("inMsg == null");
-			shut_down = true;
-		}
-		if(shut_down)
-		{
-			System.out.println("Shutting down peer");
-			close();
-			return;
-		}
-		
-		Log("Sending handshake to peer [" + inMsg.getPeerId() + 
-				"] for file ["  + inMsg.getInfoHash() + "]");
-		SendHandshake();
-		Log("Sending bitfield to peer [" + inMsg.getPeerId() + 
-				"] for file ["  + inMsg.getInfoHash() + "]");		
-		SendBitfield();
-
-		FireBackgroundThreads();		
+		FireBackgroundThreads();	
 	}	
 	
 	@Override
@@ -123,6 +77,11 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		try
 		{
 			Log("Closing connection with peer [" + this.GetPeerId() + "]");
+			
+			if(this.torrentFile != null)
+			{
+				this.torrentFile.UnregisterPeer(this);
+			}
 			
 			this.shutdownRequested = true;
 			this.inputStream.close();
@@ -142,38 +101,105 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	{
 		this.downPiece = newPiece;
 	}
-		
-	synchronized
-	private boolean InitializeStreams()
-	{
-		if(this.peerSocket == null)
-			return false;
-		try
-		{
-			if(this.outputStream == null)
-				this.outputStream = new ObjectOutputStream(peerSocket.getOutputStream());
-			if(this.inputStream == null)
-				this.inputStream = new ObjectInputStream(peerSocket.getInputStream());
-		}
-		catch(IOException ex)
-		{
-			ex.printStackTrace();
-			return false;
-		}		
-		
-		return (this.outputStream != null && this.inputStream != null);		
-	}
 	
 	@Override
 	synchronized
 	public void run()
 	{
-		if(torrentFile == null)
+		if(!EnsureConnectionInitialized())
 		{
-			Log("Invalid peer state. Aborting...");
 			close();
+			return;
 		}
 		
+		ApplyArtificialDelay();
+		CheckDownloadPieceState();
+	}
+	
+	private boolean EnsureConnectionInitialized()
+	{
+		if(!this.peerInitialized)
+		{
+			try
+			{								
+				if(this.incommingConnection) 
+				{
+					if(!RunIncommingConnectionPrelude())
+					{
+						return false;
+					}
+				}
+				else if(!RunOutgoingConnectionPrelude())
+				{
+					return false;
+				}
+								
+				SendBitfield();	
+				
+				
+				this.torrentFile.RegisterPeer(this);				
+				this.peerInitialized = true;
+			}
+			catch(Exception ex)
+			{
+				Log("Failed to initialize peer", ex);
+				return false;
+			}				
+		}
+		
+		return (this.torrentFile != null);
+	}
+	private boolean RunIncommingConnectionPrelude() throws Exception
+	{
+		if(this.torrentFileHolder == null)
+		{
+			return false;
+		}
+		
+		this.outputStream = new ObjectOutputStream(peerSocket.getOutputStream());
+		this.inputStream = new ObjectInputStream(peerSocket.getInputStream());
+		
+		PeerMessage.HandshakeMessage inMsg = ReadHandshakeDirect();
+		System.out.println("Received handshake from remote peer");	
+		
+		Log("Accepted request from Peer [" + inMsg.getPeerId() + 
+				"] for file [" + inMsg.getInfoHash() + "]");				
+						
+		this.torrentFile = this.torrentFileHolder
+				.GetTorrentFileByInfoHash(inMsg.getInfoHash());
+		this.torrentFileHolder = null;
+		
+		if(this.torrentFile == null)
+		{
+			return false;
+		}
+		
+		this.peerId = inMsg.getPeerId();
+		SendHandshake();
+		
+		return true;
+	}
+	private boolean RunOutgoingConnectionPrelude() throws Exception
+	{
+		if(this.torrentFile == null)
+		{
+			return false;
+		}
+		
+		Log("Requesting connection with Peer [" + this.hostName + 
+				" : " + this.portNumber + "]");
+		
+		this.peerSocket = new Socket(this.hostName, this.portNumber);
+		
+		this.outputStream = new ObjectOutputStream(peerSocket.getOutputStream());
+		SendHandshakeDirect();
+		
+		this.inputStream = new ObjectInputStream(peerSocket.getInputStream());		
+		
+		return true;
+	}
+	private void CheckDownloadPieceState()
+	{
 		// Go for a new piece if we're available
 		if(GetDownPiece() == null)
 		{
@@ -182,15 +208,24 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 			Piece dnPiece = GetDownPiece();
 			if(dnPiece == null)
 			{
-				//System.out.println("No piece found");
 			}
 			else
 			{
 				dnPiece.SetDownloadingPeer(this);
 			}
 			
+		}		
+	}
+	private void ApplyArtificialDelay()
+	{
+		/*
+		try
+		{
+			Thread.sleep(5);
 		}
-		
+		catch(InterruptedException ex)
+		{}
+		*/				
 	}
 	
 	synchronized
@@ -199,7 +234,8 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		if(piece.getIndex() == downPiece.getIndex())
 		{					
 			SetDownPiece(null);
-			SendHave(piece.getIndex());
+			
+			torrentFile.SendHaveMessageToPeers(piece.getIndex());
 		}
 	}
 	
@@ -258,7 +294,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		return this.peerBitField;
 	}
 	
-	public void SendHave(final int pieceIndex)
+	public void SendHaveMessage(final int pieceIndex)
 	{
 		queueOutgoingMessage(new PeerMessage.HaveMessage(pieceIndex));
 	}
@@ -266,6 +302,9 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	public void SendBitfield()
 	{
 		queueOutgoingMessage(new PeerMessage.BitfieldMessage(this.torrentFile.getBitField()));
+		
+		Log("Sending bitfield to peer [" + this.GetPeerId() + 
+				"] for file ["  + this.torrentFile.getInfoHash() + "]");
 	}
 	public void SendRequest(final int piece, final int offset, final int length)
 	{
@@ -284,12 +323,29 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	
 	private void SendHandshake() throws Exception
 	{
-		this.sendPeerMessage(
+		
+		Log("Sending handshake to peer [" + this.peerId + 
+				"] for file ["  + this.torrentFile.getInfoHash() + "]");			
+		
+		queueOutgoingMessage(
 				new PeerMessage.HandshakeMessage(Consts.PROTOCOL_IDENTIFIER, 
 					this.torrentFile.getInfoHash(),
 					this.torrentFile.getPeerId()));
+	
+		
 	}
-	private PeerMessage.HandshakeMessage ReadHandshake() throws Exception
+	private void SendHandshakeDirect() throws Exception
+	{
+		Log("Sending handshake to peer [" + this.peerId + 
+				"] for file ["  + this.torrentFile.getInfoHash() + "]");			
+		
+		sendPeerMessage(
+				new PeerMessage.HandshakeMessage(Consts.PROTOCOL_IDENTIFIER, 
+					this.torrentFile.getInfoHash(),
+					this.torrentFile.getPeerId()));			
+	}	
+	
+	private PeerMessage.HandshakeMessage ReadHandshakeDirect() throws Exception
 	{
 		return (PeerMessage.HandshakeMessage)readPeerMessage();			
 	}
@@ -448,11 +504,14 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		Log("Received handshake from peer [" + msg.getPeerId() + "]"
 				+ " for file [" + msg.getInfoHash() + "]");
 		
+		this.peerId =  msg.getPeerId();
+		
+		
 		if(!msg.getInfoHash().equals(this.torrentFile.getInfoHash()))
 		{
 			close();
 		}
-		this.peerId =  msg.getPeerId();
+		
 		Log("Established connection with Peer [" + msg.getPeerId() + "]" + 
 			" for file [" + msg.getInfoHash() + "]");
 		
@@ -523,8 +582,6 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		{
 			try
 			{
-				if(!InitializeStreams())
-					return;
 				
 				while(!shutdownRequested)
 				{	
@@ -565,8 +622,8 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		{
 			try
 			{
-				if(!InitializeStreams())
-					return;
+//				if(!InitializeStreams())
+//					return;
 				
 				while(!shutdownRequested)
 				{	

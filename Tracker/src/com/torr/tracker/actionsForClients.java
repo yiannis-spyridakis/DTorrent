@@ -11,12 +11,14 @@ import java.util.Map;
 import com.torr.trackermsgs.MessageToClient;
 import com.torr.trackermsgs.MessageToTracker;
 
-public class actionsForClients extends Thread {
+public class actionsForClients extends Thread 
+{
 	ObjectInputStream	in;
 	ObjectOutputStream	out;
 	InetAddress IP;
 	
-	public	actionsForClients(Socket connection) {
+	public	actionsForClients(Socket connection) 
+	{
 		try
 		{
 			out	= new ObjectOutputStream(connection.getOutputStream());
@@ -24,11 +26,13 @@ public class actionsForClients extends Thread {
 			IP = connection.getInetAddress()/*.getHostAddress()*/ ;
 			
 		}
-		catch(IOException e) {
+		catch(IOException e) 
+		{
 			e.printStackTrace();
 		}
 	}
-	public void run() {
+	public void run() 
+	{
 		try
 		{	
 			MessageToTracker message =(MessageToTracker) in.readObject();
@@ -41,8 +45,10 @@ public class actionsForClients extends Thread {
 			MessageToClient messageC = new MessageToClient(message.getPeer_id(), IP, message.getPort());
 			messageC.timer = System.currentTimeMillis();
 			boolean found = false;
-			for(Map.Entry<String, List<MessageToClient>> entry : Tracker.peers.entrySet()) {
-				if(entry.getKey().equals(message.getInfo_hash())) {
+			for(Map.Entry<String, List<MessageToClient>> entry : Tracker.peers.entrySet()) 
+			{
+				if(entry.getKey().equals(message.getInfo_hash())) 
+				{
 					entry.getValue().add(messageC);
 					found = true;
 				}
@@ -68,10 +74,12 @@ public class actionsForClients extends Thread {
 			}*/
 			
 		}
-		catch(IOException e) {
+		catch(IOException e) 
+		{
 			e.printStackTrace();
 		} 
-		catch (ClassNotFoundException e) {
+		catch (ClassNotFoundException e) 
+		{
 			e.printStackTrace();
 		}
 		finally
@@ -82,7 +90,8 @@ public class actionsForClients extends Thread {
 				out.close();
 			}
 			catch
-			(IOException ioException) {
+			(IOException ioException) 
+			{
 				ioException.printStackTrace();
 			}
 		}
