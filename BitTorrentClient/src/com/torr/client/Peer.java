@@ -36,7 +36,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	
 	private BitSet peerBitField = null;
 	private String peerId = null;
-	private Piece downPiece = null; // Currently downloaded piece
+	private volatile Piece downPiece = null; // Currently downloaded piece
 	
 	public volatile boolean clientInterested = false;
 	public volatile boolean peerInterested = false;
@@ -82,6 +82,12 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 			{
 				this.torrentFile.UnregisterPeer(this);
 			}
+			if(this.downPiece != null)
+			{
+				this.downPiece.SetDownloadingPeer(null);
+			}
+			this.senderThread.close();
+			this.readerThread.close();
 			
 			this.shutdownRequested = true;
 			this.inputStream.close();
@@ -97,7 +103,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	{
 		return this.downPiece;
 	}
-	private synchronized void SetDownPiece(Piece newPiece)
+	public void SetDownPiece(Piece newPiece)
 	{
 		this.downPiece = newPiece;
 	}
@@ -198,23 +204,20 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		
 		return true;
 	}
+	
+	synchronized
 	private void CheckDownloadPieceState()
 	{
 		// Go for a new piece if we're available
-		if(GetDownPiece() == null)
+//		if((this.downPiece != null) && this.downPiece.isValid())
+//		{
+//			this.downPiece.SetDownloadingPeer(null);
+//			this.downPiece = null;
+//		}
+		if(this.downPiece == null)
 		{
-			//Log("Selecting new piece for download");			
-			SetDownPiece(this.torrentFile.GetNextPieceForPeer(this));
-			Piece dnPiece = GetDownPiece();
-			if(dnPiece == null)
-			{
-			}
-			else
-			{
-				dnPiece.SetDownloadingPeer(this);
-			}
-			
-		}		
+			this.downPiece = this.torrentFile.GetNextPieceForPeer(this);
+		}
 	}
 	private void ApplyArtificialDelay()
 	{
@@ -231,10 +234,8 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	synchronized
 	public void NotifyForDownloadedPiece(Piece piece)
 	{
-		if(piece.getIndex() == downPiece.getIndex())
-		{					
-			SetDownPiece(null);
-			
+		synchronized(this.torrentFile)
+		{							
 			torrentFile.SendHaveMessageToPeers(piece.getIndex());
 		}
 	}
@@ -397,10 +398,14 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	synchronized
 	private boolean RequestNextBlock()
 	{
-		if(GetDownPiece() == null)
+		final Piece down_piece = this.downPiece;
+		if(down_piece == null)
 			return false;
+		
+//		if(this.downPiece == null)
+//			return false;
 				
-		PeerMessage.RequestMessage request = GetDownPiece().GetNextBlockRequest();
+		PeerMessage.RequestMessage request = down_piece.GetNextBlockRequest();
 		if(request == null)
 		{
 			return false;
@@ -488,8 +493,9 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	private void HandlePeerBitfield(PeerMessage.BitfieldMessage msg)
 	{
 		Log("Received bitfield from remote peer");
+		
+		this.torrentFile.ProcessPeerBitfieldChange(this.GetBitField(), msg.getBitfield());
 		this.peerBitField = msg.getBitfield();
-		this.torrentFile.ProcessPeerBitfield(this, this.peerBitField);
 	}
 	private void HandlePeerRequest(PeerMessage.RequestMessage msg)
 	{
@@ -568,7 +574,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	{		
 	}
 	
-	private class SenderThread implements Runnable
+	private class SenderThread implements Runnable, AutoCloseable
 	{
 		private Thread backgroundThread;
 		public SenderThread()
@@ -601,14 +607,22 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 			{
 				// Only act if we're not shutting down
 				if(!Peer.this.shutdownRequested)
-				{				
+				{			
+					ex.printStackTrace();
 					Log("Error in peer upload [" + GetPeerId() + "]:", ex);
-					close();
+					Peer.this.close();					
 				}
 			}
 		}
+		
+		@Override
+		public void close()
+		{
+			this.backgroundThread.interrupt();
+		}
+		
 	}
-	private class ReaderThread implements Runnable
+	private class ReaderThread implements Runnable, AutoCloseable
 	{
 		private Thread backgroundThread;
 		public ReaderThread()
@@ -646,6 +660,12 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 				}
 			}
 		}
+		
+		@Override
+		public void close()
+		{
+			this.backgroundThread.interrupt();
+		}		
 	}	
 	
 	private void FireBackgroundThreads()

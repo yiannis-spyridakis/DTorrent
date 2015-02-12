@@ -15,7 +15,7 @@ public class Piece {
 	private int index = 0;
 	private int offset = 0;
 	private int length = 0;
-	private int next_block_offset = 0; // for download requests
+	private int next_request_block_offset = 0; // for download requests
 	
 	private ByteBuffer dataBuffer;
 	private TorrentFile torrentFile;
@@ -68,6 +68,7 @@ public class Piece {
 	{
 		return this.dataBuffer;
 	}
+	synchronized
 	public void SetDownloadingPeer(Peer peer)
 	{
 		this.downloadingPeer = peer;
@@ -76,30 +77,30 @@ public class Piece {
 	{
 		return this.downloadingPeer;
 	}
+	synchronized
+	public boolean IsRegisteredWithPeer()
+	{
+		return (this.downloadingPeer != null);
+	}
 	
+	synchronized
 	public PeerMessage.RequestMessage GetNextBlockRequest()
 	{
 		// Return null if we've requested all blocks
-		if(next_block_offset >= this.length)
+		if(next_request_block_offset >= this.length)
+		{
 			return null;
+		}
 		
 		final int length = 
-				Math.min(ProtocolPolicy.BLOCK_SIZE, this.length - this.next_block_offset);
+				Math.min(ProtocolPolicy.BLOCK_SIZE, this.length - this.next_request_block_offset);
 		
 		PeerMessage.RequestMessage ret = 
-				new PeerMessage.RequestMessage(this.index, next_block_offset, length);
+				new PeerMessage.RequestMessage(this.index, next_request_block_offset, length);		
 		
-		next_block_offset += length;
+		next_request_block_offset += length;
 		
 		return ret;
-	}
-	public int GetNextBlockOffset()
-	{
-		return this.next_block_offset;
-	}
-	public void SetNextBlockOffset(final int offset)
-	{
-		this.next_block_offset = offset;
 	}
 	
 	// Number of peers in swarm that have the piece
@@ -115,9 +116,24 @@ public class Piece {
 	{
 		--this.availablePeers;
 	}
+	public void ResetAvailablePeers()
+	{
+		this.availablePeers = 0;
+	}
 	public boolean IsAvailable()
 	{
 		return (!this.valid) && (this.availablePeers > 0);
+	}
+	synchronized
+	public void reset()
+	{
+		this.availablePeers = 0;
+		this.dataBuffer = null;
+		if(this.downloadingPeer != null)
+		{
+			this.downloadingPeer.SetDownPiece(null);
+			this.downloadingPeer = null;
+		}
 	}
 	
 	public ByteBuffer read() throws Exception
@@ -170,16 +186,13 @@ public class Piece {
 		block.rewind();
 		this.dataBuffer.position(offset);
 		this.dataBuffer.put(block);
-		block.rewind();
+		block.rewind();		
 		
-		// Check for completion
-		int nextOffset = offset + block.remaining();
-		
-		if(nextOffset >= this.length)
+		int next_offset = offset + block.remaining();
+		if(next_offset >= this.length)
 		{
 			this.torrentFile.NotifyForDownloadedPiece(this);
-		}
-		
+		}		
 	}
 	
 	public boolean validate()
@@ -187,11 +200,6 @@ public class Piece {
 		try
 		{
 			this.valid = validateDirect(this.readDirect());
-			if(this.valid)
-			{
-				this.availablePeers = 0;
-				this.dataBuffer = null;
-			}
 		}
 		catch(Exception ex)
 		{

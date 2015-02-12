@@ -59,27 +59,43 @@ public class PieceSelectionPolicy
 		}
 		else
 		{
-			// Implement rarest first policy
-			boolean found_piece = false;
-			int max_peer_count = 0;
+			// Implement rarest first policy:
+			// Randomly select among the pieces with the minimum peer count
+			
+			
+			// Get the count of peers for each available index
+			int[][] peerCounts = new int[peerAvailableIndices.length][2];
+			
 			for(int i = 0; i < peerAvailableIndices.length; ++i)
 			{
 				int examined_index = peerAvailableIndices[i];
+				peerCounts[i][0] = examined_index;
+				
 				Piece piece = this.torrentFile.GetPieces()[examined_index];
 				
-				int piece_seeding_peers_count = piece.GetSeedingPeersCount();
-				if(piece_seeding_peers_count > max_peer_count)
+				// Omit pieces that are being downloaded
+				if(piece.IsRegisteredWithPeer())
 				{
-					piece_index = examined_index;
-					found_piece = true;
+					peerCounts[i][1] = 0;
+				}
+				else
+				{
+					peerCounts[i][1] = piece.GetSeedingPeersCount();
 				}
 			}
-			if(!found_piece)
-			{
-				return null;
-			}
+			int[] max_indices = GetMaxIndices(peerCounts);
+			piece_index = max_indices[new Random().nextInt(max_indices.length)];
 		}
-		return this.torrentFile.GetPieces()[piece_index];
+		Piece return_piece = this.torrentFile.GetPieces()[piece_index];
+		if((return_piece.GetSeedingPeersCount() == 0) && return_piece.IsRegisteredWithPeer())
+		{
+			return null;
+		}
+		else
+		{
+			return_piece.SetDownloadingPeer(peer);
+			return return_piece;
+		}
 	}
 	
 	private int[] GetBitfieldSetIndices(BitSet peerBitfield)
@@ -101,5 +117,45 @@ public class PieceSelectionPolicy
 		
 		return ret;
 	}
+	
+	private int[] GetMaxIndices(int[][] indices)
+	{
+		int[] ret = null;
 		
+		// Sort array by available peer count (second column)
+		java.util.Arrays.sort(indices, new java.util.Comparator<int[]>()
+		{
+			public int compare(int[] lhs, int[] rhs)
+			{
+				return Integer.compare(rhs[1], lhs[1]); // Descending
+			}
+		});
+		
+		// Return a 1-d array that contains the indices with the maximum
+		// peer count
+		
+		int length = indices.length;
+		if(length == 1)
+		{
+			ret = new int[1];
+			ret[0] = indices[0][0];
+			return ret;			
+		}
+				
+		
+		int ceiling = 0;
+		while((ceiling < length-1) && indices[ceiling][1] == indices[ceiling+1][1])
+		{
+			++ceiling;
+		}
+				
+		ret = new int[ceiling+1];
+		
+		int ret_idx = 0;
+		for(int i = 0; i <= ceiling; ++i, ++ret_idx)
+		{
+			ret[ret_idx] = indices[i][0];
+		}
+		return ret;		
+	}		
 }

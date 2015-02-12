@@ -241,27 +241,38 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		this.addTask(new FutureTask<Void>(new Callable<Void>()
 		{							
 			@Override
-			synchronized public Void call()// throws Exception
+			public Void call()
 			{
 				try
 				{
-					// Notify peer for download completion
-					Peer downloadingPeer = piece.GetDownloadingPeer();					
+				
 					
-					// write data to disk
+					// write data to disk and validate
 					write(piece.GetBuffer(), piece.getOffset());
-					if(piece.validate())
+					piece.validate();
+					
+					// always reset the piece even if it's not validated
+					// in case it's not valid it will be queued up anew
+					piece.reset();
+										
+					if(piece.isValid())
 					{
 						Log("Successfully downloaded piece #" + piece.getIndex());
 						
 						UpdateUIForDownloadedPieces();
 						
-						downloadingPeer.NotifyForDownloadedPiece(piece);
-					}										
+						// Notify peer for download completion
+						Peer downloadingPeer = piece.GetDownloadingPeer();	
+						if(downloadingPeer != null)
+						{
+							downloadingPeer.NotifyForDownloadedPiece(piece);
+						}
+					}
 				}
 				catch(Exception ex)
 				{
 					Log("Failed to write piece #" + piece.getOffset() + " to disk:", ex);
+					ex.printStackTrace();
 				}
 				
 				return null;
@@ -269,24 +280,38 @@ public class TorrentFile extends TasksQueue implements Runnable, AutoCloseable {
 		}));		
 	}
 	
+	// Called with a new bitfield while the peer still holds its old bitfield
 	synchronized
-	public void ProcessPeerBitfield(final Peer peer, final BitSet bitfield)
+	public void ProcessPeerBitfieldChange(
+			final BitSet oldBitfield, 
+			BitSet newBitfield)
 	{
 		final Piece[] local_pieces = this.pieces;
+		final BitSet newBitfieldCopy = (BitSet)newBitfield.clone();
 		
 		this.addTask(new FutureTask<Void>(new Callable<Void>()
 		{							
 			@Override
 			public Void call()// throws Exception
 			{
+				// Get pieces difference
+				if(oldBitfield != null)
+				{
+					newBitfieldCopy.andNot(oldBitfield);
+				}
+				
 				for(int i = 0; i < local_pieces.length; ++i)
 				{
 					Piece piece = local_pieces[i];
-					if(bitfield.get(i) && (!piece.isValid()))
+					if(piece.isValid())
+					{
+						piece.ResetAvailablePeers();
+					}
+					else if(newBitfieldCopy.get(i))
 					{
 						piece.IncreaseAvailablePeers();
 					}
-				}
+				}				
 				
 				return null;
 			}
