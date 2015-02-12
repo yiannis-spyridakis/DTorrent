@@ -298,9 +298,23 @@ public class TorrentUI extends Application implements ITorrentUI {
 	    
 	    Menu fileMenu = new Menu("File");
 	    MenuItem openMenu = new MenuItem("Open Torrent File");
-	    MenuItem exitMenu = new MenuItem("Exit");
+	    openMenu.setOnAction(new EventHandler<ActionEvent>()
+        {
+        	public void handle(ActionEvent t)
+        	{
+        		openTorrent();
+        	}
+        });	
 	    
-	   // MenuItem levelEditMenu = new MenuItem("Edit Levels");
+	    MenuItem exitMenu = new MenuItem("Exit");
+        exitMenu.setOnAction(new EventHandler<ActionEvent>()
+        {
+        	public void handle(ActionEvent t)
+        	{
+        		System.exit(0);
+        	}
+        });	    
+	    
 	    fileMenu.getItems().add(openMenu);
 	    fileMenu.getItems().add(new SeparatorMenuItem());
 	    fileMenu.getItems().add(exitMenu);
@@ -309,6 +323,15 @@ public class TorrentUI extends Application implements ITorrentUI {
 	    
 	    Menu helpMenu = new Menu("Help");
 	    MenuItem aboutMenu = new MenuItem("About");
+	    aboutMenu.setOnAction(new EventHandler<ActionEvent>()
+	    {
+            public void handle(ActionEvent t)
+            {
+            	printConsoleInfoInternal(
+            		"Εργασία στα Κατανεμημένα Συστήματα\n" + 
+            		"Πετρίδης Θεοδόσης \t Σπυριδάκης Γιάννης \t Τσελεπάκης Κώστας");
+            }
+        });
 	    
 	    helpMenu.getItems().add(aboutMenu);
 
