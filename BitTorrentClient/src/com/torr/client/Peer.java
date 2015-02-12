@@ -8,6 +8,7 @@ import java.util.concurrent.*;
 
 //import com.torr.utils.TasksQueue;
 import com.torr.msgs.PeerMessage;
+import com.torr.policies.ProtocolPolicy;
 //import com.torr.policies.ProtocolPolicy;
 
 
@@ -31,8 +32,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 				= new LinkedBlockingQueue<PeerMessage>();
 	private LinkedBlockingQueue<PeerMessage.RequestMessage> upPieceRequests 
 				= new LinkedBlockingQueue<PeerMessage.RequestMessage>();
-//	private LinkedBlockingQueue<PeerMessage.RequestMessage> downPieceRequests 
-//	= new LinkedBlockingQueue<PeerMessage.RequestMessage>();
+	private PeerStateChecker peerStateChecker = new PeerStateChecker();
 	
 	private BitSet peerBitField = null;
 	private String peerId = null;
@@ -120,6 +120,8 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		
 		ApplyArtificialDelay();
 		CheckDownloadPieceState();
+		
+		this.peerStateChecker.CheckForIdleState();
 	}
 	
 	private boolean EnsureConnectionInitialized()
@@ -209,16 +211,12 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	private void CheckDownloadPieceState()
 	{
 		// Go for a new piece if we're available
-//		if((this.downPiece != null) && this.downPiece.isValid())
-//		{
-//			this.downPiece.SetDownloadingPeer(null);
-//			this.downPiece = null;
-//		}
 		if(this.downPiece == null)
 		{
 			this.downPiece = this.torrentFile.GetNextPieceForPeer(this);
 		}
 	}
+	
 	private void ApplyArtificialDelay()
 	{
 		/*
@@ -295,6 +293,14 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		return this.peerBitField;
 	}
 	
+	public void SendKeepAliveMessage()
+	{
+		if(this.peerStateChecker.CanSendKeepAlive())
+		{
+			queueOutgoingMessage(new PeerMessage.KeepAliveMessage());
+			this.peerStateChecker.LogOutgoingKeepAlive();
+		}
+	}
 	public void SendHaveMessage(final int pieceIndex)
 	{
 		queueOutgoingMessage(new PeerMessage.HaveMessage(pieceIndex));
@@ -358,6 +364,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		
 		handleMessage(readPeerMessage());
 		messageRead = true;
+		this.peerStateChecker.LogDownload();
 		
 		return messageRead;
 	}
@@ -441,7 +448,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		switch(msg.getType())
 		{
 		case KEEP_ALIVE:
-			// Nothing to do, we're keeping the connection open anyways.
+			HandleKeepAliveMessage();
 			break;
 		case CHOKE:
 			HandlePeerChoking(true);
@@ -474,6 +481,16 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 			HandleHandshakeMessage((PeerMessage.HandshakeMessage)msg);
 			break;
 		}
+	}
+	
+	private void HandleKeepAliveMessage()
+	{
+		// Reply with a keepalive message if we didn't initiate the exchange
+		if(!this.peerStateChecker.ExpectingKeepAlive())
+		{
+			SendKeepAliveMessage();
+		}
+		this.peerStateChecker.LogIncommingKeepAlive();
 	}
 	
 	private void HandlePeerChoking(final boolean choking)
@@ -636,9 +653,6 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		{
 			try
 			{
-//				if(!InitializeStreams())
-//					return;
-				
 				while(!shutdownRequested)
 				{	
 					// Peer actions
@@ -667,6 +681,67 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 			this.backgroundThread.interrupt();
 		}		
 	}	
+	
+	private class PeerStateChecker
+	{
+		private volatile long last_download_time = 0;
+		private volatile long sent_keep_alive_message_time = 0;
+		private volatile boolean expecting_keep_alive = false;
+		
+		public boolean ExpectingKeepAlive()
+		{
+			return expecting_keep_alive;
+		}
+		public void LogOutgoingKeepAlive()
+		{
+			sent_keep_alive_message_time = System.currentTimeMillis();
+		}
+		public void LogIncommingKeepAlive()
+		{
+			this.expecting_keep_alive = false;
+		}
+		
+		public long GetLastDownloadTime()
+		{
+			return last_download_time;
+		}
+		
+		public void CheckForIdleState()
+		{
+			if((last_download_time == 0) || expecting_keep_alive)
+				return;
+			
+			long current_time = System.currentTimeMillis();
+			long time_diff = current_time - last_download_time;
+			if(time_diff < ProtocolPolicy.PEER_IDLE_TIME_FLOOR_THRESHOLD)
+			{
+				// All good; do nothing
+			}
+			else if(time_diff < ProtocolPolicy.PEER_IDLE_TIME_CEILING_THRESHOLD)
+			{
+				expecting_keep_alive = true;
+				SendKeepAliveMessage();
+			}
+			else
+			{
+				Peer.this.close();
+			}
+		}
+		
+		public boolean CanSendKeepAlive()
+		{
+			long last_keepalive_time_diff = 
+					(System.currentTimeMillis() - sent_keep_alive_message_time);
+			
+			return (last_keepalive_time_diff >= 
+						ProtocolPolicy.PEER_IDLE_TIME_FLOOR_THRESHOLD);
+		}
+		
+		public void LogDownload()
+		{
+			this.last_download_time = System.currentTimeMillis();
+		}
+	}
 	
 	private void FireBackgroundThreads()
 	{
