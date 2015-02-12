@@ -142,9 +142,11 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 					return false;
 				}
 								
-				SendBitfield();	
-				
-				
+				SendBitfield();
+				// Friendly peer: always interested and unchoking
+				DeclareInterest(true);
+				Choke(false);
+								
 				this.torrentFile.RegisterPeer(this);				
 				this.peerInitialized = true;
 			}
@@ -184,6 +186,9 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		
 		this.peerId = inMsg.getPeerId();
 		SendHandshake();
+		// Friendly peer: always interested and unchoking
+		DeclareInterest(true);
+		Choke(false);		
 		
 		return true;
 	}
@@ -210,10 +215,13 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	synchronized
 	private void CheckDownloadPieceState()
 	{
-		// Go for a new piece if we're available
-		if(this.downPiece == null)
-		{
-			this.downPiece = this.torrentFile.GetNextPieceForPeer(this);
+		if(IsInterested() && !IsChoked())
+		{		
+			// Go for a new piece if we're available
+			if(this.downPiece == null)
+			{
+				this.downPiece = this.torrentFile.GetNextPieceForPeer(this);
+			}
 		}
 	}
 	
@@ -247,6 +255,10 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	
 	public void Choke(final boolean choke)
 	{
+		Log("Sending [" + (choke ? "Choke" : "Unchoke") +
+				"] message to peer [" + this.GetPeerId() + 
+				"] for file ["  + this.torrentFile.getInfoHash() + "]");		
+		
 		if(choke)
 		{
 			queueOutgoingMessage(new PeerMessage.ChokeMessage());
@@ -267,6 +279,10 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	
 	public void DeclareInterest(final boolean interested)
 	{
+		Log("Sending [" + (interested ? "Interested" : "Not Interested") +
+				"] message to peer [" + this.GetPeerId() + 
+				"] for file ["  + this.torrentFile.getInfoHash() + "]");
+		
 		if(interested)
 		{
 			queueOutgoingMessage(new PeerMessage.InterestedMessage());
@@ -326,7 +342,7 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	{
 		queueOutgoingMessage(
 				new PeerMessage.PieceMessage(piece, offset, data));
-	}
+	}	
 	
 	private void SendHandshake() throws Exception
 	{
@@ -405,22 +421,22 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	synchronized
 	private boolean RequestNextBlock()
 	{
-		final Piece down_piece = this.downPiece;
-		if(down_piece == null)
-			return false;
-		
-//		if(this.downPiece == null)
-//			return false;
-				
-		PeerMessage.RequestMessage request = down_piece.GetNextBlockRequest();
-		if(request == null)
-		{
-			return false;
+		if(IsInterested() && !IsChoked())
+		{		
+			final Piece down_piece = this.downPiece;
+			if(down_piece == null)
+				return false;
+			
+			PeerMessage.RequestMessage request = down_piece.GetNextBlockRequest();
+			if(request == null)
+			{
+				return false;
+			}
+			
+			this.queueOutgoingMessage(request);
+			return true;
 		}
-		
-		this.queueOutgoingMessage(request);
-		return true;
-		
+		return false;
 	}
 	
 	
@@ -496,12 +512,10 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	private void HandlePeerChoking(final boolean choking)
 	{
 		this.peerChoking = choking;
-		// TODO: Notify TorrentFile
 	}
 	private void HandlePeerInterested(final boolean interested)
 	{
-		this.peerInterested = interested;
-		// TODO: Notify TorrentFile
+		this.peerInterested = interested;		
 	}
 	private void HandlePeerHave(PeerMessage.HaveMessage msg) throws Exception
 	{
@@ -516,6 +530,13 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 	}
 	private void HandlePeerRequest(PeerMessage.RequestMessage msg)
 	{
+		if(!PeerInterested() || IsChoking())
+		{
+			Log("Terminating connection with peer [" + this.GetPeerId() + "]" + 
+				" for file [" + this.torrentFile.getInfoHash() + 
+				"] due to invalid request");
+		}
+		
 		upPieceRequests.add(msg);
 	}
 	private void HandlePieceMessage(PeerMessage.PieceMessage msg) throws Exception
@@ -605,7 +626,6 @@ public class Peer /*extends TasksQueue*/ implements Runnable, AutoCloseable  {
 		{
 			try
 			{
-				
 				while(!shutdownRequested)
 				{	
 					// Peer actions
